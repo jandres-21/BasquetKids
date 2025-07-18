@@ -1,0 +1,192 @@
+{% extends 'public/base_cpanel.html' %}
+
+{% block title %}Listado de Niños - 🧒 Mi App{% endblock %}
+
+{% block body %}
+<div class="card glassmorphism-card p-4 my-4 mx-auto" style="max-width: 1200px;">
+    <section>
+        <h2 class="text-center mb-5" style="color: #28282B;">
+            Lista de Niños Registrados
+            <hr />
+        </h2>
+
+        <div class="mb-4 d-flex flex-wrap justify-content-between align-items-center">
+            <a href="{% if dataLogin.rol != 3 %}/registrar-nino{% else %}javascript:void(0);{% endif %}" 
+               class="btn btn-primary mb-2 {% if dataLogin.rol == 3 %}disabled{% endif %}"
+               {% if dataLogin.rol == 3 %} tabindex="-1" aria-disabled="true" {% endif %}>
+                <i class="bi bi-plus-circle me-2"></i> Nuevo Niño/a
+            </a>
+            <div class="d-flex flex-wrap gap-2">
+                <input type="text" id="filtroNombre" class="form-control form-control-sm" placeholder="Nombre" style="width: 120px;" />
+                <input type="text" id="filtroApellido" class="form-control form-control-sm" placeholder="Apellido" style="width: 120px;" />
+                <input type="text" id="filtroEdad" class="form-control form-control-sm" placeholder="Edad" style="width: 80px;" />
+                <input type="text" id="filtroGenero" class="form-control form-control-sm" placeholder="Género" style="width: 80px;" /> {# NUEVO FILTRO PARA GÉNERO #}
+            </div>
+        </div>
+
+        <div class="table-responsive text-nowrap">
+            <table class="table table-hover" id="tablaNinos">
+                <thead class="colorTheadTrTh">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Apellido</th>
+                        <th>Edad</th>
+                        <th>Género</th> {# NUEVA COLUMNA #}
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if lista_ninos %}
+                        {% for nino in lista_ninos %}
+                        <tr>
+                            <td class="col-nombre">{{ nino.nombre }}</td>
+                            <td class="col-apellido">{{ nino.apellido }}</td>
+                            <td class="col-edad">{{ nino.edad }}</td>
+                            <td class="col-genero">{{ nino.genero | capitalize }}</td> {# NUEVO CAMPO + CAPITALIZE #}
+                            <td>
+                                {% if dataLogin.rol != 3 %}
+                                <a href="/editar-nino/{{ nino.id }}" class="btn btn-success btn-sm me-2" title="Actualizar Registro">
+                                    <i class="bi bi-arrow-clockwise"></i> Actualizar
+                                </a>
+                                <a onclick="eliminarNino('{{ nino.id }}');" class="btn btn-danger btn-sm"
+                                   data-bs-toggle="tooltip" data-bs-offset="0,4" data-bs-placement="top" data-bs-html="true"
+                                   title="<span>Eliminar a {{ nino.nombre }} {{ nino.apellido }}</span>">
+                                    <i class="bi bi-trash3"></i> Eliminar
+                                </a>
+                                {% else %}
+                                <!-- Botones deshabilitados para rol 3 -->
+                                <button class="btn btn-success btn-sm me-2" title="Actualizar Registro" disabled
+                                        style="cursor: not-allowed;" tabindex="-1" aria-disabled="true">
+                                    <i class="bi bi-arrow-clockwise"></i> Actualizar
+                                </button>
+                                <button class="btn btn-danger btn-sm" disabled
+                                        title="No tienes permiso para eliminar" style="cursor: not-allowed;" tabindex="-1" aria-disabled="true">
+                                    <i class="bi bi-trash3"></i> Eliminar
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted"> {# colspan ajustado a 5 #}
+                                No hay niños registrados 😭
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+            <!-- Agrego paginación aquí -->
+            <div id="paginacionNinos" class="mt-3 d-flex justify-content-center"></div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block customJS %}
+<script>
+    function eliminarNino(id) {
+        Swal.fire({
+            title: '¿Estás seguro?',
+            text: "Esta acción eliminará al niño/a del registro y todas sus sesiones.", // Texto actualizado
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#C83C2F',
+            cancelButtonColor: '#A9B9C4',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                let url = `/borrar-nino/${id}`;
+                window.location.href = url;
+            }
+        });
+    }
+
+    // Filtro en tiempo real con paginación
+    document.addEventListener('DOMContentLoaded', () => {
+        const filtroNombre = document.getElementById('filtroNombre');
+        const filtroApellido = document.getElementById('filtroApellido');
+        const filtroEdad = document.getElementById('filtroEdad');
+        const filtroGenero = document.getElementById('filtroGenero'); // NUEVO FILTRO
+
+        const tbody = document.querySelector('#tablaNinos tbody');
+        const filasOriginales = Array.from(tbody.rows);
+
+        const filasPorPagina = 5;
+        let paginaActual = 1;
+        const paginacionDiv = document.getElementById('paginacionNinos');
+
+        function filtrarFilas() {
+            const nombre = filtroNombre.value.toLowerCase();
+            const apellido = filtroApellido.value.toLowerCase();
+            const edad = filtroEdad.value.toLowerCase();
+            const genero = filtroGenero.value.toLowerCase(); // Obtener valor del nuevo filtro
+
+            return filasOriginales.filter(row => {
+                const colNombre = row.querySelector('.col-nombre').textContent.toLowerCase();
+                const colApellido = row.querySelector('.col-apellido').textContent.toLowerCase();
+                const colEdad = row.querySelector('.col-edad').textContent.toLowerCase();
+                const colGenero = row.querySelector('.col-genero').textContent.toLowerCase(); // Obtener valor de la columna género
+
+                return colNombre.includes(nombre) &&
+                       colApellido.includes(apellido) &&
+                       colEdad.includes(edad) &&
+                       colGenero.includes(genero); // Añadir filtro de género
+            });
+        }
+
+        function mostrarPagina(pagina) {
+            const filasFiltradas = filtrarFilas();
+            const totalPaginas = Math.ceil(filasFiltradas.length / filasPorPagina) || 1;
+
+            paginaActual = Math.min(Math.max(pagina, 1), totalPaginas);
+
+            const inicio = (paginaActual - 1) * filasPorPagina;
+            const fin = inicio + filasPorPagina;
+
+            tbody.innerHTML = '';
+            // Si no hay resultados de filtro, mostrar fila de "No hay niños registrados"
+            if (filasFiltradas.length === 0) {
+                const noDataRow = document.createElement('tr');
+                noDataRow.innerHTML = `<td colspan="5" class="text-center text-muted">No hay niños registrados que coincidan con el filtro 😭</td>`;
+                tbody.appendChild(noDataRow);
+            } else {
+                filasFiltradas.slice(inicio, fin).forEach(fila => tbody.appendChild(fila));
+            }
+
+            renderizarPaginacion(totalPaginas);
+        }
+
+        function renderizarPaginacion(totalPaginas) {
+            paginacionDiv.innerHTML = '';
+
+            if (totalPaginas <= 1 && filtrarFilas().length <= filasPorPagina) return; // Ocultar paginación si no es necesaria
+
+            function crearBoton(texto, pagina, activo = false, deshabilitado = false) {
+                const btn = document.createElement('button');
+                btn.textContent = texto;
+                btn.className = 'btn btn-sm mx-1 ' + (activo ? 'btn-primary' : 'btn-outline-primary');
+                btn.disabled = deshabilitado;
+                btn.addEventListener('click', () => mostrarPagina(pagina));
+                return btn;
+            }
+
+            paginacionDiv.appendChild(crearBoton('«', paginaActual - 1, false, paginaActual === 1));
+
+            for (let i = 1; i <= totalPaginas; i++) {
+                paginacionDiv.appendChild(crearBoton(i, i, i === paginaActual));
+            }
+
+            paginacionDiv.appendChild(crearBoton('»', paginaActual + 1, false, paginaActual === totalPaginas));
+        }
+
+        filtroNombre.addEventListener('input', () => mostrarPagina(1));
+        filtroApellido.addEventListener('input', () => mostrarPagina(1));
+        filtroEdad.addEventListener('input', () => mostrarPagina(1));
+        filtroGenero.addEventListener('input', () => mostrarPagina(1)); // NUEVO LISTENER
+
+        mostrarPagina(1); // Muestra la primera página al cargar
+    });
+</script>
+{% endblock %}

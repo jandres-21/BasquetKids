@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
+  data-assets-path="../assets/" data-template="vertical-menu-template-free">
+
+<head>
+  {% include 'public/includes/head.html' %}
+  {% block customCSS %}
+  <style>
+    /* El contenedor principal, ahora completamente transparente */
+    .glass-carrusel {
+      overflow: hidden;
+      width: 95%;
+      max-width: 1200px;
+      position: relative;
+    }
+
+    /* ************************************************************ */
+    /* NUEVA CLASE PARA BAJAR EL CARRUSEL */
+    .carousel-lower-position {
+      margin-top: 100px; /* Ajusta este valor (en px) para cambiar la distancia desde arriba */
+      /* Puedes experimentar con valores como 50px, 100px, 150px, etc., según cómo lo veas en tu diseño. */
+    }
+    /* ************************************************************ */
+
+
+    /* Ocultar indicadores por defecto de Bootstrap, no los necesitamos para este diseño */
+    #carouselBienvenida .carousel-indicators {
+      display: none;
+    }
+
+    /* Estilos personalizados del carrusel */
+    #carouselBienvenida {
+      position: relative;
+      width: 100%;
+      height: 450px;
+      /* Altura fija para el carrusel */
+      overflow: hidden;
+      /* Asegura que las imágenes ocultas no se vean fuera */
+    }
+
+    #carouselBienvenida .carousel-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #carouselBienvenida .carousel-item {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      /* Centrado base */
+      width: 40%;
+      /* Ancho por defecto de la imagen (más pequeña) */
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      /* Oculto por defecto */
+      pointer-events: none;
+      /* No interactuable por defecto */
+      /* Transiciones para un movimiento suave y elegante */
+      transition: transform 0.7s ease-out, opacity 0.7s ease-out, width 0.7s ease-out, height 0.7s ease-out, z-index 0s 0.7s;
+      transform-origin: center center;
+      box-sizing: border-box;
+      /* Para incluir padding y border en el width/height */
+      padding: 10px;
+      /* Separación de la imagen interna */
+      /* Fondo blanco y sombra sutil para simular una tarjeta limpia */
+      background-color: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    #carouselBienvenida .carousel-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      /* Un poco de border-radius para la imagen dentro de la tarjeta */
+      box-shadow: none;
+    }
+
+    /* CLASES DINAMICAS DE JS */
+
+    /* Imagen central (más grande y al frente) */
+    #carouselBienvenida .carousel-item.is-center {
+      width: 50%;
+      /* Más grande, ajustado a un tamaño que funcione bien sin 3D */
+      height: 90%;
+      /* Ajuste de altura */
+      transform: translate(-50%, -50%) scale(1.05);
+      /* Ligeramente más grande */
+      opacity: 1;
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    /* Imagen izquierda (más pequeña, desplazada a la izquierda) */
+    #carouselBienvenida .carousel-item.is-left {
+      width: 40%;
+      /* Más pequeña */
+      height: 80%;
+      /* Altura reducida */
+      transform: translate(calc(-50% - 250px), -50%) scale(0.85);
+      opacity: 0.7;
+      z-index: 9;
+      pointer-events: auto;
+    }
+
+    /* Imagen derecha (más pequeña, desplazada a la derecha) */
+    #carouselBienvenida .carousel-item.is-right {
+      width: 40%;
+      height: 80%;
+      transform: translate(calc(-50% + 250px), -50%) scale(0.85);
+      opacity: 0.7;
+      z-index: 9;
+      pointer-events: auto;
+    }
+
+    /* Imágenes ocultas (aún más pequeñas y fuera de vista) */
+    #carouselBienvenida .carousel-item.is-hidden-left {
+      width: 30%;
+      height: 60%;
+      transform: translate(calc(-50% - 600px), -50%) scale(0.7);
+      opacity: 0;
+      z-index: 8;
+    }
+
+    #carouselBienvenida .carousel-item.is-hidden-right {
+      width: 30%;
+      height: 60%;
+      transform: translate(calc(-50% + 600px), -50%) scale(0.7);
+      opacity: 0;
+      z-index: 8;
+    }
+
+
+    /* ESTILOS DE LOS CONTROLES DE NAVEGACIÓN - Más elegantes */
+    #carouselBienvenida .custom-carousel-control-prev,
+    #carouselBienvenida .custom-carousel-control-next {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 20;
+      width: 60px;
+      height: 60px;
+      opacity: 0;
+      transition: opacity 0.3s ease, background-color 0.3s ease, border-radius 0.3s ease;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.4);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+    }
+
+    #carouselBienvenida:hover .custom-carousel-control-prev,
+    #carouselBienvenida:hover .custom-carousel-control-next {
+      opacity: 1;
+    }
+
+    #carouselBienvenida .custom-carousel-control-prev:hover,
+    #carouselBienvenida .custom-carousel-control-next:hover {
+      background-color: rgba(255, 255, 255, 0.7);
+    }
+
+    #carouselBienvenida .custom-carousel-control-prev {
+      left: 2%;
+    }
+
+    #carouselBienvenida .custom-carousel-control-next {
+      right: 2%;
+    }
+
+    #carouselBienvenida .custom-carousel-control-prev-icon,
+    #carouselBienvenida .custom-carousel-control-next-icon {
+      width: auto;
+      height: auto;
+      font-size: 2rem;
+      color: #777;
+      margin: 0;
+      line-height: 1;
+    }
+
+    /* Usamos caracteres Unicode para flechas elegantes */
+    #carouselBienvenida .custom-carousel-control-prev-icon::before {
+      content: '\276E';
+    }
+
+    #carouselBienvenida .custom-carousel-control-next-icon::before {
+      content: '\276F';
+    }
+
+    /* Media query para pantallas más pequeñas */
+    @media (max-width: 768px) {
+      /* Ajuste el margen superior en pantallas más pequeñas si es necesario */
+      .carousel-lower-position {
+        margin-top: 50px; /* Un poco menos en móviles para evitar que se salga de pantalla */
+      }
+
+      #carouselBienvenida {
+        height: 300px;
+      }
+      #carouselBienvenida .carousel-item {
+        padding: 5px;
+      }
+
+      #carouselBienvenida .carousel-item.is-center {
+        width: 70%;
+        height: 80%;
+        transform: translate(-50%, -50%) scale(1);
+      }
+
+      #carouselBienvenida .carousel-item.is-left {
+        width: 50%;
+        height: 70%;
+        transform: translate(calc(-50% - 150px), -50%) scale(0.8);
+      }
+
+      #carouselBienvenida .carousel-item.is-right {
+        width: 50%;
+        height: 70%;
+        transform: translate(calc(-50% + 150px), -50%) scale(0.8);
+      }
+
+      #carouselBienvenida .carousel-item.is-hidden-left,
+      #carouselBienvenida .carousel-item.is-hidden-right {
+        opacity: 0;
+        transform: translate(calc(-50% - 300px), -50%) scale(0.6);
+      }
+
+      #carouselBienvenida .custom-carousel-control-prev,
+      #carouselBienvenida .custom-carousel-control-next {
+        width: 40px;
+        height: 40px;
+      }
+      #carouselBienvenida .custom-carousel-control-prev-icon,
+      #carouselBienvenida .custom-carousel-control-next-icon {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+  {% endblock %}
+</head>
+
+<body>
+  {% include 'public/includes/pre_loader.html' %}
+  {% include 'public/includes/navbar.html' %}
+  <div class="layout-wrapper layout-content-navbar">
+    <div class="layout-container">
+      {% include 'public/includes/menu_sidebar.html'%}
+      <div class="layout-page">
+        <div class="content-wrapper">
+          <div class="container-xxl flex-grow-1 container-p-y">
+            {% include 'public/includes/messages.html' %}
+            {% block body %}
+
+            {% if dataLogin.rol == 1 %}
+            <div class="mb-4 text-center">
+              <h1 class="fw-bold">BIENVENIDO ADMINISTRADOR</h1>
+            </div>
+            {% endif %}
+            {% if dataLogin.rol == 2 %}
+            <div class="mb-4 text-center">
+              <h1 class="fw-bold">BIENVENIDO USUARIO</h1>
+            </div>
+            {% endif %}
+            {% if dataLogin.rol == 3 %}
+            <div class="mb-4 text-center">
+              <h1 class="fw-bold">Hola {{ dataLogin.name }}, disfruta tu instancia 😊</h1>
+            </div>
+            {% endif %}
+
+            <!-- Carrusel transparente y centrado -->
+            <!-- Añadimos la clase carousel-lower-position aquí -->
+            <div class="d-flex justify-content-center mb-5 carousel-lower-position">
+              <div class="glass-carrusel">
+                <div id="carouselBienvenida">
+                  <div class="carousel-indicators" style="display:none;">
+                    {% for i in range(5) %}
+                    <button type="button" data-bs-target="#carouselBienvenida" data-bs-slide-to="{{ i }}" {% if i == 0
+                      %}class="active"{% endif %} aria-current="true" aria-label="Slide {{ i + 1 }}"></button>
+                    {% endfor %}
+                  </div>
+
+                  <!-- Slides -->
+                  <div class="carousel-inner">
+                    {% for i in range(1, 6) %}
+                    <div class="carousel-item {% if i == 1 %}active{% endif %}">
+                      <img src="{{ url_for('static', filename='images/' ~ i ~ '.png') }}" class="d-block img-fluid"
+                        alt="Imagen {{ i }}">
+                    </div>
+                    {% endfor %}
+                  </div>
+
+                  <!-- CONTROLES -->
+                  <button class="custom-carousel-control-prev" type="button" data-bs-target="#carouselBienvenida"
+                    data-bs-slide="prev">
+                    <span class="custom-carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Anterior</span>
+                  </button>
+                  <button class="custom-carousel-control-next" type="button" data-bs-target="#carouselBienvenida"
+                    data-bs-slide="next">
+                    <span class="custom-carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Siguiente</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {% endblock %}
+          </div>
+          <div class="content-backdrop fade"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include 'public/includes/js.html' %}
+  {% block customJS %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const carousel = document.getElementById('carouselBienvenida');
+      const items = Array.from(carousel.querySelectorAll('.carousel-item'));
+      const numItems = items.length;
+      let currentIndex = 0; // El índice de la imagen central
+      let autoSlideInterval; // Variable para el intervalo de auto-avance
+
+      function updateCarouselDisplay() {
+        items.forEach((item, i) => {
+          // Eliminar todas las clases de estado anteriores
+          item.classList.remove('is-center', 'is-left', 'is-right', 'is-hidden-left', 'is-hidden-right', 'active');
+
+          // Calcular índices relativos para el loop infinito
+          const prevIndex = (currentIndex - 1 + numItems) % numItems;
+          const nextIndex = (currentIndex + 1) % numItems;
+
+          // Asignar clases
+          if (i === currentIndex) {
+            item.classList.add('is-center');
+          } else if (i === prevIndex) {
+            item.classList.add('is-left');
+          } else if (i === nextIndex) {
+            item.classList.add('is-right');
+          } else {
+            // Lógica para imágenes ocultas que entran/salen fluidamente
+            const diff = i - currentIndex;
+            const wrappedDiff = (diff + numItems / 2) % numItems - numItems / 2;
+
+            if (wrappedDiff < 0) {
+              item.classList.add('is-hidden-left');
+            } else {
+              item.classList.add('is-hidden-right');
+            }
+          }
+        });
+      }
+
+      function showNext() {
+        currentIndex = (currentIndex + 1) % numItems;
+        updateCarouselDisplay();
+      }
+
+      function showPrev() {
+        currentIndex = (currentIndex - 1 + numItems) % numItems;
+        updateCarouselDisplay();
+      }
+
+      // Inicializar el carrusel al cargar la página
+      updateCarouselDisplay();
+
+      // Controles de navegación
+      carousel.querySelector('.custom-carousel-control-next').addEventListener('click', () => {
+        showNext();
+        resetAutoSlide(); // Reiniciar el auto-avance al interactuar manualmente
+      });
+      carousel.querySelector('.custom-carousel-control-prev').addEventListener('click', () => {
+        showPrev();
+        resetAutoSlide(); // Reiniciar el auto-avance al interactuar manualmente
+      });
+
+      // Auto-avance (loop infinito)
+      const autoSlideDelay = 10000; // Milisegundos entre cada slide (10 segundos)
+
+      function startAutoSlide() {
+        autoSlideInterval = setInterval(showNext, autoSlideDelay);
+      }
+
+      function resetAutoSlide() {
+        clearInterval(autoSlideInterval);
+        startAutoSlide();
+      }
+
+      // Iniciar el auto-avance al principio
+      startAutoSlide();
+
+      // Pausar el auto-avance cuando el mouse está sobre el carrusel
+      carousel.addEventListener('mouseenter', () => {
+        clearInterval(autoSlideInterval);
+      });
+
+      // Reanudar el auto-avance cuando el mouse sale del carrusel
+      carousel.addEventListener('mouseleave', () => {
+        startAutoSlide();
+      });
+    });
+  </script>
+  {% endblock %}
+</body>
+
+</html>

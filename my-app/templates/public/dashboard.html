@@ -1,0 +1,559 @@
+{% extends 'public/base_cpanel.html' %}
+{% block body_class %}no-scroll-page{% endblock %}
+{% block title %}Dashboard Juego{% endblock %}
+
+{% block body %}
+<!-- Overlay de Carga -->
+<div id="loading-overlay" class="loading-overlay d-none">
+  <div class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Cargando...</span>
+  </div>
+</div>
+
+<!-- Pantalla de Bienvenida -->
+<div id="welcome-screen" class="welcome-screen-therapist-layout">
+  <div class="card card-therapist-dashboard p-5"><h1 class="welcome-title-therapist">Bienvenido a BasketKids</h1><button id="startButton" class="btn btn-primary btn-lg welcome-button-therapist"><i class="bi bi-play-circle-fill me-2"></i> Iniciar</button></div>
+</div>
+
+<!-- Pantalla de Selección de Jugador -->
+<div id="player-selection-screen" class="dashboard-content-therapist d-none">
+  <div class="card card-therapist-dashboard p-4">
+    <div class="app-brand justify-content-center mb-3"><span class="app-brand-link"><i class="bi bi-person-circle bx-md"></i></i></span></div>
+    <h3 class="mb-2 welcome-text-color">Selecciona un Jugador</h3><p class="mb-4 text-muted welcome-text-color">Elige un perfil para comenzar o busca uno nuevo.</p>
+    <div class="carousel-container">
+      <button class="carousel-control prev"><i class="bi bi-chevron-left"></i></button>
+      <div class="carousel-track" id="mainCarouselTrack">
+        <div class="carousel-item search-card"><i class="bi bi-search search-icon-lg player-avatar"></i><h5 class="search-text">Buscar Jugador</h5><p class="search-description">Encontrar por nombre, <br>edad o género.</p><button class="btn btn-primary search-open-btn">Buscar</button></div>
+        {% for p in ultimos_jugadores %}<div class="carousel-item player-card" data-player-id="{{ p.id }}" data-player-name="{{ p.nombre }} {{ p.apellido }}" data-player-genero="{{ p.genero }}" data-player-age="{{ p.edad }}"><img src="{{ url_for('static', filename='assets/img/' ~ p.genero ~ '.png') }}" alt="{{ p.genero }}" class="player-avatar"><h5 class="player-name">{{ p.nombre }} {{ p.apellido }}</h5><p class="player-age">Edad: {{ p.edad }}</p><button class="btn btn-primary btn-sm select-player-btn" data-player-id="{{ p.id }}" data-player-name="{{ p.nombre }} {{ p.apellido }}" data-player-genero="{{ p.genero }}" data-player-age="{{ p.edad }}">Seleccionar</button></div>{% endfor %}
+      </div>
+      <button class="carousel-control next"><i class="bi bi-chevron-right"></i></button>
+    </div>
+  </div>
+</div>
+
+<!-- Sección de Juego Activo -->
+<div id="game-active-section" class="game-active-layout-v2 d-none">
+  <div class="player-session-header-v2">
+    <div class="d-flex align-items-center"><div id="timerCard" class="timer-card-v2 me-3"><span id="gameTimer" class="timer-display">00:00</span></div><select class="form-select form-select-sm setting-select" id="timer_duration_mode_selector" data-setting-name="timer_duration_mode"><option value="1_min">1 Minuto</option><option value="3_min">3 Minutos</option><option value="5_min">5 Minutos</option><option value="libre">Modo Libre</option></select></div>
+    <div class="player-info-display-compact-v2"><img id="currentPlayerAvatar" src="" alt="Avatar" class="player-avatar-active"><h2 id="currentPlayerName" class="player-name-display"></h2></div>
+    <button id="toggleSessionButton" class="btn btn-start-session-v2"><i class="bi bi-play-fill me-2"></i> Iniciar Sesión</button>
+  </div>
+  <div class="controls-panel-v2 audio-controls-panel"><div class="control-group"><h5 class="panel-heading">Música</h5><div class="form-check form-switch custom-switch"><input class="form-check-input setting-switch" type="checkbox" id="musicToggle"data-setting-name="music_enabled" checked><label class="form-check-label" for="musicToggle">Habilitar</label></div><input type="range" class="form-range setting-slider" id="musicVolume" min="0" max="100" value="50"data-setting-name="music_volume"><div class="form-select-group mt-2"><label for="musicSelector" class="form-label">Estilo de Música:</label><select class="form-select form-select-sm setting-select" id="musicSelector"data-setting-name="music_style"><option value="musica1">Música 1</option><option value="musica2">Música 2</option></select></div></div><div class="control-group"><h5 class="panel-heading">Efectos de Sonido</h5><div class="d-flex justify-content-between align-items-center mb-2"><label class="form-check-label me-2" for="sonido_encestar_on">Sonido al encestar</label><div class="form-check form-switch"><input class="form-check-input setting-switch" type="checkbox" id="sonido_encestar_on" data-setting-name="sonido_encestar_on" checked></div></div><div class="d-flex justify-content-between align-items-center mb-3"><label class="form-check-label me-2" for="sonido_contacto_paneles_on">Sonido en paneles</label><div class="form-check form-switch"><input class="form-check-input setting-switch" type="checkbox" id="sonido_contacto_paneles_on" data-setting-name="sonido_contacto_paneles_on" checked></div></div><div class="form-select-group mt-2"><label for="sound_effect_selector" class="form-label">Tipo de Efectos:</label><select class="form-select form-select-sm setting-select" id="sound_effect_selector" data-setting-name="sound_effect_style"><option value="BooM!">Efecto 1</option><option value="Sonic">Efecto 2</option><option value="Mario">Efecto 3</option><option value="Honguito">Efecto 4</option></select></div><label for="volumen_sonido" class="form-label mt-3">Volumen</label>
+    <div class="d-flex align-items-center">
+      <input type="range" min="0" max="100" value="50" class="form-range setting-slider" id="volumen_sonido" data-setting-name="volumen_sonido">
+      <span class="ms-2" id="val_volumen_sonido">50</span><span class="ms-1">%</span>
+    </div>
+  </div></div>
+  <div class="basketball-board-container-v2"><svg id="basketballBoard" viewBox="0 0 400 300" class="basketball-board"><rect x="20" y="20" width="360" height="260" rx="15" ry="15" class="board-outline"></rect><rect x="45" y="45" width="310" height="70" class="zone-arriba"></rect><text x="200" y="80" text-anchor="middle" class="zone-text">ARRIBA</text><rect x="45" y="130" width="100" height="100" class="zone-izq"></rect><text x="95" y="180" text-anchor="middle" class="zone-text">IZQUIERDA</text><rect x="255" y="130" width="100" height="100" class="zone-der"></rect><text x="305" y="180" text-anchor="middle" class="zone-text">DERECHA</text><rect x="155" y="130" width="90" height="100" class="zone-aro"></rect><text x="200" y="180" text-anchor="middle" class="zone-text">ARO</text><path d="M 170 230 A 30 30 0 0 0 230 230" class="zone-canasta"></path></svg></div>
+  <div class="controls-panel-v2 rgb-controls-panel"><div class="control-group"><h5 class="panel-heading">Luces LED</h5>{% for led_name in ['izquierdo', 'derecho', 'central'] %}<div class="mb-3"><div class="form-check form-switch custom-switch"><input class="form-check-input setting-switch" type="checkbox" id="led_{{ led_name }}_on" data-setting-name="led_{{ led_name }}_on" checked><label class="form-check-label" for="led_{{ led_name }}_on">LED {{ led_name | capitalize }}</label></div><div class="rgb-controls" id="rgb_controls_{{ led_name }}"><div class="rgb-slider-group"><label for="led_{{ led_name }}_hue">Color</label><input type="range" min="0" max="255" value="0" class="form-range setting-slider" id="led_{{ led_name }}_hue" data-setting-name="led_{{ led_name }}_hue"><span id="val_led_{{ led_name }}_hue">0</span></div><div class="d-flex justify-content-center mt-2"><span class="rgb-color-circle-preview" id="preview_{{ led_name }}"></span></div></div></div>{% endfor %}<div class="form-select-group mt-2"><label for="lightEffectSelector" class="form-label">Efecto al Encestar:</label><select class="form-select form-select-sm setting-select" id="lightEffectSelector" data-setting-name="light_score_effect"><option value="destello">Destello</option><option value="arcoiris">Arcoiris</option><option value="none">Ninguno</option></select></div></div></div>
+  <div class="gauges-container-v2">{% for name in ['Arriba', 'Aro', 'Izquierda', 'Derecha'] %}<div class="gauge-card"><h6 class="gauge-title">{{ name | upper }}</h6><svg class="gauge-svg" viewBox="0 0 100 100"><circle class="gauge-track-bg" cx="50" cy="50" r="40"></circle><circle class="gauge-segment red-segment" cx="50" cy="50" r="40"></circle><circle class="gauge-segment orange-segment" cx="50" cy="50" r="40"></circle><circle class="gauge-segment green-segment" cx="50" cy="50" r="40"></circle><line class="gauge-needle" x1="50" y1="50" x2="50" y2="15" id="gaugeNeedle{{ name }}"></line><circle class="gauge-center" cx="50" cy="50" r="8"></circle></svg><div class="gauge-info-text"><span class="total-count-value" id="gaugeTotalValue{{ name }}">0</span></div></div>{% endfor %}</div>
+</div>
+
+<!-- Pantalla de Resultados -->
+<div id="results-screen" class="results-layout d-none">
+  <div class="results-card card-therapist-dashboard p-4">
+    <div class="results-content-wrapper" id="pdf-content">
+      <div class="app-brand justify-content-center mb-3"><img id="resultsPlayerAvatar" src="" alt="Avatar del Jugador" class="player-avatar-active"></div>
+      <h3 id="resultsPlayerNameTitle" class="mb-2 text-center results-main-title"></h3>
+      <p class="mb-4 text-center results-therapist-phrase">Análisis del desempeño del jugador durante la sesión.</p><hr>
+      <h4 class="mb-3 text-center results-section-title">Resumen de la Sesión</h4>
+      <p class="mb-4 text-center results-game-time">Tiempo de Juego: <span id="resultsGameTime">00:00</span></p>
+      <div class="chart-container mb-4">
+        <h5 class="mb-3 text-center chart-title">Distribución de Toques</h5>
+        <div class="bar-chart-wrapper">
+          <div class="bar-chart" id="gameBarChart">
+            <div class="bar-group"><span class="bar-value" id="barValueAro">0</span><div class="bar-fill" id="barAro"></div><span class="bar-label">Aro</span></div>
+            <div class="bar-group"><span class="bar-value" id="barValueArriba">0</span><div class="bar-fill" id="barArriba"></div><span class="bar-label">Arriba</span></div>
+            <div class="bar-group"><span class="bar-value" id="barValueIzquierda">0</span><div class="bar-fill" id="barIzquierda"></div><span class="bar-label">Izquierda</span></div>
+            <div class="bar-group"><span class="bar-value" id="barValueDerecha">0</span><div class="bar-fill" id="barDerecha"></div><span class="bar-label">Derecha</span></div>
+          </div>
+        </div>
+      </div>
+      <div id="diagnosticReport" class="diagnostic-container mt-4"><h5 class="mb-3 text-center diagnostic-title">Diagnóstico de la Sesión</h5><p id="diagnosticText" class="diagnostic-text"></p></div>
+    </div>
+    <div class="d-flex justify-content-center mt-auto pt-3">
+      <button id="saveAndBackBtn" class="btn btn-sm btn-success me-2"><i class="bi bi-save me-1"></i> Guardar y Volver</button>
+      <button id="discardAndBackBtn" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-x-circle me-1"></i> Descartar y Volver</button>
+      <button id="generatePdfBtn" class="btn btn-sm btn-primary"><i class="bi bi-file-earmark-pdf me-1"></i> Generar PDF</button>
+    </div>
+    <div id="saveNotification" class="mt-2 text-center" style="display: none;"></div>
+  </div>
+</div>
+
+<!-- Overlay de Búsqueda -->
+<div id="search-overlay" class="search-overlay d-none">
+  <div class="card login-card search-card-therapist-dashboard p-4">
+    <button class="search-close-btn"><i class="bi bi-x-lg"></i></button><h4 class="mb-2 text-center search-title-color">Buscar Jugador</h4><p class="mb-4 text-center text-muted search-title-color">Ingresa criterios de búsqueda.</p>
+    <form id="searchPlayerForm" class="mb-3"><div class="mb-3"><label for="searchNombre" class="form-label">Nombre:</label><input type="text" class="form-control" id="searchNombre" name="nombre" placeholder="Nombre"></div><div class="mb-3"><label for="searchApellido" class="form-label">Apellido:</label><input type="text" class="form-control" id="searchApellido" name="apellido" placeholder="Apellido"></div><div class="row g-3 mb-3"><div class="col-md-6"><label for="searchEdad" class="form-label">Edad:</label><input type="number" class="form-control" id="searchEdad" name="edad" min="1" max="99" placeholder="Edad"></div><div class="col-md-6"><label for="searchGenero" class="form-label">Género:</label><select class="form-select" id="searchGenero" name="genero"><option value="">Cualquiera</option><option value="niño">Niño</option><option value="niña">Niña</option></select></div></div><button type="submit" class="btn btn-primary w-100">Aplicar Búsqueda</button></form>
+    <hr><h5 class="mb-3 text-center search-title-color">Resultados</h5><div class="search-results-display"><p class="text-center text-muted no-results-msg">Usa el formulario para buscar jugadores.</p></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block customCSS %}
+<link rel="stylesheet" href="{{ url_for('static', filename='my_style.css') }}">
+<style>
+  @keyframes flash-animation { 0% { fill-opacity: 1; } 50% { fill-opacity: 0.3; } 100% { fill-opacity: 1; } }
+  .flash-effect { animation: flash-animation 0.5s ease-in-out; }
+  .syncing { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+  .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.7); display: flex; justify-content: center; align-items: center; z-index: 1060; }
+  .loading-overlay .spinner-border { width: 3rem; height: 3rem; }
+  .carousel-track { touch-action: pan-y; } /* Permite el scroll vertical pero captura el horizontal */
+</style>
+{% endblock %}
+
+
+{% block customJS %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+<script>
+  const initialSettings = JSON.parse('{{ settings | tojson | safe }}');
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  // --- ESTADO Y CONSTANTES ---
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const welcomeScreen = document.getElementById('welcome-screen');
+  const playerSelectionScreen = document.getElementById('player-selection-screen');
+  const gameActiveSection = document.getElementById('game-active-section');
+  const resultsScreen = document.getElementById('results-screen');
+  const searchOverlay = document.getElementById('search-overlay');
+  const startButton = document.getElementById('startButton');
+  const mainCarouselTrack = document.getElementById('mainCarouselTrack');
+  const toggleSessionButton = document.getElementById('toggleSessionButton');
+  const gameTimerDisplay = document.getElementById('gameTimer');
+  const diagnosticTextElement = document.getElementById('diagnosticText');
+  const carouselPrevBtn = document.querySelector('#player-selection-screen .carousel-control.prev');
+  const carouselNextBtn = document.querySelector('#player-selection-screen .carousel-control.next');
+
+  let isSessionActive = false;
+  let gameInterval, pollerInterval, settingsPollerInterval;
+  let currentElapsedTime = 0;
+  let sessionResultData = {};
+  const gauges = {'Arriba': { totalCount: 0 }, 'Aro': { totalCount: 0 }, 'Izquierda': { totalCount: 0 }, 'Derecha': { totalCount: 0 }};
+  let currentCarouselIndex = 0;
+  let isSyncing = false;
+
+  const LATERAL_BIAS_FACTOR = 1.5;
+  const MIN_LATERAL_FOR_BIAS = 2;
+
+  const diagnosticMatrix = {
+    thresholds: {
+      '1_min': { arriba: [2, 1], aro: [2, 1], izq: [2, 1], der: [2, 1] },
+      '3_min': { arriba: [5, 4], aro: [4, 3], izq: [4, 3], der: [4, 3] },
+      '5_min': { arriba: [7, 6], aro: [6, 5], izq: [6, 5], der: [6, 5] }
+    }
+  };
+
+  // --- LÓGICA DE CARGA Y SINCRONIZACIÓN ---
+  function mostrarCargando() { if (loadingOverlay) loadingOverlay.classList.remove('d-none'); }
+  function ocultarCargando() { if (loadingOverlay) loadingOverlay.classList.add('d-none'); }
+
+  async function syncAllSettings(controlElement) {
+    if (isSyncing && controlElement) return;
+    if (controlElement) { isSyncing = true; controlElement.classList.add('syncing'); }
+    const settingsPayload = {};
+    document.querySelectorAll('.setting-switch, .setting-slider, .setting-select').forEach(control => {
+      const settingName = control.dataset.settingName;
+      const value = control.type === 'checkbox' ? control.checked.toString() : control.value;
+      settingsPayload[settingName] = value;
+    });
+    try { await fetch('/sync_settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settingsPayload) });
+    } catch (e) { console.error("Error de red al sincronizar ajustes:", e); } 
+    finally { if (controlElement) { isSyncing = false; controlElement.classList.remove('syncing'); } }
+  }
+
+  async function pollSettings() {
+    if (isSyncing) return;
+    try {
+        const response = await fetch('/get_all_settings');
+        const serverSettings = await response.json();
+        document.querySelectorAll('.setting-switch, .setting-slider, .setting-select').forEach(control => {
+            const settingName = control.dataset.settingName;
+            const serverValue = serverSettings[settingName];
+            if (serverValue === undefined) return;
+            const currentIsChecked = control.checked;
+            const serverIsChecked = (serverValue === 'true' || serverValue === '1');
+            if (control.type === 'checkbox' && currentIsChecked !== serverIsChecked) {
+                control.checked = serverIsChecked;
+            } else if (control.type !== 'checkbox' && control.value !== serverValue) {
+                control.value = serverValue;
+                control.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+    } catch (e) { console.error("Error al obtener ajustes:", e); }
+  }
+
+  async function pollCounters() {
+    if (!isSessionActive) return;
+    try {
+        const response = await fetch('/get_game_counters');
+        const newCounts = await response.json();
+        for (const zone in newCounts) {
+            if (newCounts.hasOwnProperty(zone) && gauges[zone].totalCount < newCounts[zone]) {
+                gauges[zone].totalCount = newCounts[zone];
+                updateGaugeDisplay(zone, gauges[zone].totalCount);
+                flashBoardZone(zone);
+            }
+        }
+    } catch (e) { console.error("Error al obtener contadores:", e); }
+  }
+
+  function updateGaugeDisplay(zone, count) {
+    const valueElement = document.getElementById(`gaugeTotalValue${zone}`);
+    if(valueElement) valueElement.textContent = count;
+  }
+
+  function flashBoardZone(zone) {
+    let zoneClass = '';
+    if (zone === 'Arriba') zoneClass = '.zone-arriba';
+    else if (zone === 'Aro') zoneClass = '.zone-aro, .zone-canasta';
+    else if (zone === 'Izquierda') zoneClass = '.zone-izq';
+    else if (zone === 'Derecha') zoneClass = '.zone-der';
+    document.querySelectorAll(`#basketballBoard ${zoneClass}`).forEach(element => {
+        element.classList.add('flash-effect');
+        setTimeout(() => { element.classList.remove('flash-effect'); }, 500);
+    });
+  }
+
+  async function setGameState(state) {
+    const stateValue = state ? 1 : 0;
+    try { await fetch('/set_game_state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado: stateValue }) });
+    } catch(e) { console.error("Error al establecer el estado del juego:", e); }
+  }
+
+    function setGameStateOnExit() {
+        if (isSessionActive) {
+            const data = new Blob([JSON.stringify({ estado: 0 })], { type: 'application/json' });
+            navigator.sendBeacon('/set_game_state', data);
+        }
+    }
+
+  async function resetGameCounters() {
+    try { await fetch('/reset_game_counters', { method: 'POST' }); } 
+    catch(e) { console.error("Error al reiniciar los contadores:", e); }
+  }
+
+  function hsvToRgb(h, s, v) {
+    let r, g, b, i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v* (1 - (1 - f) * s);
+    switch (i % 6) { case 0: r=v, g=t, b=p; break; case 1: r=q, g=v, b=p; break; case 2: r=p, g=v, b=t; break; case 3: r=p, g=q, b=v; break; case 4: r=t, g=p, b=v; break; case 5: r=v, g=p, b=q; break; }
+    return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+  }
+
+  function updateLedColorPreview(ledName) {
+    const hueSlider = document.getElementById(`led_${ledName}_hue`);
+    if (!hueSlider) return;
+    const hueValue = parseInt(hueSlider.value);
+    const color = hsvToRgb(hueValue / 255, 1, 1);
+    const previewEl = document.getElementById(`preview_${ledName}`);
+    if (previewEl) previewEl.style.backgroundColor = color;
+    const valueDisplay = document.getElementById(`val_led_${ledName}_hue`);
+    if(valueDisplay) valueDisplay.textContent = hueValue;
+  }
+    
+    function generateDiagnostic(sd, isCancelledByUser) {
+        const totalToques = Object.values(sd.gaugeCounts).reduce((a, b) => a + b, 0);
+        if (totalToques === 0) {
+            return {
+                level: "Es un buen comienzo",
+                text: "¡Es un buen comienzo! No se registraron toques en esta sesión, lo que nos da la oportunidad perfecta para empezar a practicar las habilidades de lanzamiento. Enfocaremos el trabajo en la guía visual y la coordinación mano-ojo.<br><br>¡Cada intento cuenta! Estamos aquí para apoyarte en cada paso del camino."
+            };
+        }
+
+        const c = sd.gaugeCounts;
+        const izqCount = c.Izquierda || 0;
+        const derCount = c.Derecha || 0;
+        const aroCount = c.Aro || 0;
+        const arribaCount = c.Arriba || 0;
+        const centralCount = aroCount + arribaCount;
+        const lateralCount = izqCount + derCount;
+
+        if (sd.timerMode === 'libre') {
+            const porcentajeCentral = (centralCount / totalToques) * 100;
+            let biasDesc = "";
+            if (derCount >= MIN_LATERAL_FOR_BIAS && derCount > izqCount * LATERAL_BIAS_FACTOR) biasDesc = "<br><br>Adicionalmente, se observó una inclinación notable hacia la zona derecha.";
+            else if (izqCount >= MIN_LATERAL_FOR_BIAS && izqCount > derCount * LATERAL_BIAS_FACTOR) biasDesc = "<br><br>Adicionalmente, se observó una inclinación notable hacia la zona izquierda.";
+            else if (lateralCount > 0) biasDesc = "<br><br>La actividad lateral se distribuyó de manera bastante equitativa entre ambas zonas.";
+            
+            if (porcentajeCentral >= 65) return { level: "Estilo Centrado y Preciso", text: "En esta sesión de juego libre, el niño demostró un estilo de juego enfocado, concentrando la mayoría de sus acciones en la zona central del tablero." + biasDesc}; 
+            else if (porcentajeCentral >= 35) return { level: "Estilo de Juego Mixto", text: "Durante el juego libre, el niño alternó entre acciones dirigidas al centro y la exploración de las zonas laterales." + biasDesc}; 
+            else return { level: "Estilo de Juego Exploratorio", text: "El patrón de juego fue predominantemente exploratorio, con una amplia distribución de toques por todo el tablero." + biasDesc};
+        }
+
+        if (isCancelledByUser) return { level: "Cancelada", text: "Sesión cancelada por el usuario." };
+
+        const thresholds = diagnosticMatrix.thresholds[sd.timerMode];
+        if (!thresholds) {
+            return { level: "Patrón Mixto", text: "El desempeño es mixto. No se pudo aplicar una regla específica para este modo de tiempo.<br><br>¡Muy buen esfuerzo! La práctica constante está dando sus frutos." };
+        }
+
+        const esFocoCentral = centralCount > lateralCount;
+        const esFocoLateral = lateralCount > centralCount;
+        
+        let inclinacion = null;
+        if (derCount > izqCount * LATERAL_BIAS_FACTOR && derCount >= MIN_LATERAL_FOR_BIAS) {
+            inclinacion = "Derecha";
+        } else if (izqCount > derCount * LATERAL_BIAS_FACTOR && izqCount >= MIN_LATERAL_FOR_BIAS) {
+            inclinacion = "Izquierda";
+        }
+
+        // 1. Alta Precisión
+        if (aroCount >= thresholds.aro[0] && centralCount >= totalToques * 0.6 && lateralCount < totalToques * 0.25) {
+            return { level: `Alta Precisión`, text: `El desempeño muestra una puntería muy buena, concentrando la mayoría de los toques en el aro. Se observa un control direccional bien desarrollado, con mínima dispersión lateral.<br><br>¡Un trabajo excepcional, gran concentración!` };
+        }
+
+        // 2. Foco Central con/sin inclinación
+        if (esFocoCentral) {
+            let biasText = "y una buena distribución de la actividad en las zonas laterales.";
+            if(inclinacion) biasText = `pero con una clara tendencia a interactuar con la zona ${inclinacion.toLowerCase()}.`;
+            return { level: `Enfoque Central`, text: `El niño demuestra una buena orientación hacia el objetivo, ${biasText} Se puede trabajar en refinar la puntería para aumentar los toques en el aro.<br><br>¡Buen enfoque! La práctica está perfeccionando la precisión.` };
+        }
+        
+        // 3. Foco Lateral (dispersión) con/sin inclinación
+        if (esFocoLateral) {
+            let biasText = "con alta actividad en ambas zonas.";
+            if (inclinacion) biasText = `con una fuerte desviación de la actividad hacia la zona ${inclinacion.toLowerCase()}.`;
+            return { level: `Alta Dispersión Lateral`, text: `Se observa una desorientación general, ${biasText} Esto indica que se necesita trabajar intensivamente en la guía visual y la planificación motora para dirigir la acción al objetivo.<br><br>¡Cada sesión es un nuevo comienzo! Vamos a enfocarnos juntos.` };
+        }
+
+        // 4. Fallback para casos equilibrados o mixtos
+        return { level: "Patrón Mixto", text: "El desempeño presenta un patrón mixto, con una distribución de toques repartida entre las diferentes zonas. Esto indica una fase activa de aprendizaje y consolidación. Necesita refuerzo para mejorar la puntería y reducir la dispersión.<br><br>¡Muy buen esfuerzo! La práctica constante está dando sus frutos." };
+    }
+
+  async function initializeGameActiveSection(playerName, playerGenero, playerId, playerAge) {
+    Object.keys(gauges).forEach(k => gauges[k].totalCount = 0);
+    document.querySelectorAll('.total-count-value').forEach(el => el.textContent = '0');
+    clearInterval(gameInterval); clearInterval(pollerInterval); clearInterval(settingsPollerInterval);
+    gameTimerDisplay.textContent = '00:00';
+    isSessionActive = false;
+    toggleSessionButton.className = "btn btn-start-session-v2";
+    toggleSessionButton.innerHTML = '<i class="bi bi-play-fill me-2"></i> Iniciar Sesión';
+    const sD = JSON.parse(localStorage.getItem('activeGameSession')) || {};
+    sD.playerId = playerId; sD.playerName = playerName; sD.playerGenero = playerGenero; sD.playerAge = playerAge;
+    localStorage.setItem('activeGameSession', JSON.stringify(sD));
+    await pollSettings();
+    settingsPollerInterval = setInterval(pollSettings, 5000);
+  }
+
+  async function selectPlayerHandler() {
+    mostrarCargando();
+    try {
+        localStorage.setItem('activeGameSession', JSON.stringify(this.dataset));
+        document.getElementById('currentPlayerName').textContent = this.dataset.playerName;
+        document.getElementById('currentPlayerAvatar').src = `/static/assets/img/${this.dataset.playerGenero}.png`;
+        await initializeGameActiveSection(this.dataset.playerName, this.dataset.playerGenero, this.dataset.playerId, this.dataset.playerAge);
+        playerSelectionScreen.classList.add('d-none');
+        gameActiveSection.classList.remove('d-none');
+    } catch(error) {
+        console.error("Error al inicializar la sección del juego:", error);
+        alert("Hubo un problema al cargar los datos del jugador. Por favor, intente de nuevo.");
+    } finally {
+        ocultarCargando();
+    }
+  }
+  
+  async function handleToggleSession(stoppedByTimer = false) {
+    mostrarCargando();
+    try {
+        if (isSessionActive) {
+            isSessionActive = false;
+            await setGameState(false);
+            clearInterval(pollerInterval);
+            clearInterval(gameInterval);
+            gameActiveSection.classList.add('d-none');
+            await pollCounters(); 
+            await new Promise(resolve => setTimeout(resolve, 200)); 
+            const isCancelled = !stoppedByTimer;
+            await prepareAndDisplayResults(isCancelled);
+        } else {
+            isSessionActive = true;
+            await resetGameCounters();
+            await setGameState(true);
+            toggleSessionButton.classList.add('active');
+            toggleSessionButton.innerHTML = '<i class="bi bi-stop-circle-fill me-2"></i> Terminar Sesión';
+            pollerInterval = setInterval(pollCounters, 1000);
+            const sD = JSON.parse(localStorage.getItem('activeGameSession')) || {};
+            if (!sD.sessionStartTime) sD.sessionStartTime = Date.now();
+            localStorage.setItem('activeGameSession', JSON.stringify(sD));
+            startTimer();
+        }
+    } catch(error) {
+        console.error("Error al cambiar estado de la sesión:", error);
+        alert("Hubo un problema de conexión. Por favor, intente de nuevo.");
+        isSessionActive = !isSessionActive; 
+    } finally {
+        ocultarCargando();
+    }
+  }
+  
+  async function prepareAndDisplayResults(isCancelledByUser) {
+    const sD = JSON.parse(localStorage.getItem('activeGameSession'));
+    if (!sD) { resultsScreen.classList.add('d-none'); playerSelectionScreen.classList.remove('d-none'); return; }
+    try {
+        if (!sD.playerId) { alert('Error: No se pudo obtener el ID del jugador.'); displayResults(sD, isCancelledByUser); return; }
+        const r = await fetch(`/get_next_session_number/${sD.playerId}`);
+        if (!r.ok) throw new Error(await r.text());
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error);
+        sD.sessionNumber = data.next_session_number;
+        displayResults(sD, isCancelledByUser);
+    } catch (e) { alert(`Error al preparar resultados: ${e.message}.`); displayResults(sD, isCancelledByUser); }
+  }
+
+  function displayResults(sD, isCancelledByUser) {
+    resultsScreen.classList.remove('d-none');
+    sD.sessionEndTime = Date.now();
+    document.getElementById('resultsPlayerAvatar').src = `/static/assets/img/${sD.playerGenero}.png`;
+    document.getElementById('resultsPlayerNameTitle').textContent = `Resultados para ${sD.playerName} - Sesión #${sD.sessionNumber || 'N/A'}`; 
+    sD.timerMode = document.getElementById('timer_duration_mode_selector').value;
+    sD.durationText = sD.timerMode === 'libre' ? gameTimerDisplay.textContent : document.getElementById('timer_duration_mode_selector').selectedOptions[0].text;
+    document.getElementById('resultsGameTime').textContent = sD.durationText;
+    sD.gaugeCounts = Object.fromEntries(Object.entries(gauges).map(([k, v]) => [k, v.totalCount]));
+    const diagnosticData = generateDiagnostic(sD, isCancelledByUser);
+    sD.diagnosticText = diagnosticData.text; 
+    sD.rendimiento = diagnosticData.level;
+    diagnosticTextElement.innerHTML = diagnosticData.text;
+    sessionResultData = sD;
+    const totalToquesResult = Object.values(sD.gaugeCounts).reduce((a, b) => a + b, 0);
+    let canSave = !!sD.playerId; 
+    if (canSave && totalToquesResult === 0 && isCancelledByUser && sD.timerMode !== 'libre') canSave = false;
+    document.getElementById('saveAndBackBtn').disabled = !canSave;
+    document.getElementById('saveAndBackBtn').innerHTML = canSave ? '<i class="bi bi-save me-1"></i> Guardar y Volver' : '<i class="bi bi-x-circle me-1"></i> No se puede guardar';
+    document.getElementById('discardAndBackBtn').disabled = false;
+    document.getElementById('generatePdfBtn').disabled = false;
+    document.getElementById('saveNotification').style.display = 'none';
+    const fC = sD.gaugeCounts;
+    const mC = Math.max(...Object.values(fC).map(v=>v||0), 1); 
+    const bH = document.getElementById('gameBarChart').offsetHeight;
+    ['Aro', 'Arriba', 'Izquierda', 'Derecha'].forEach(k => { 
+        const elBar = document.getElementById(`bar${k}`); const elVal = document.getElementById(`barValue${k}`); 
+        if(elBar) elBar.style.height = `${((fC[k] || 0) / mC) * bH * 0.7}px`;
+        if(elVal) elVal.textContent = fC[k] || 0;
+    });
+  }
+
+  function startTimer() {
+    clearInterval(gameInterval);
+    currentElapsedTime = 0;
+    const mode = document.getElementById('timer_duration_mode_selector').value;
+    let totalDuration = 0;
+    if (mode === '1_min') totalDuration = 60; else if (mode === '3_min') totalDuration = 180; else if (mode === '5_min') totalDuration = 300;
+    gameInterval = setInterval(() => {
+        let displaySeconds;
+        if (mode !== 'libre') {
+            displaySeconds = totalDuration - currentElapsedTime;
+            if (displaySeconds < 0) { displaySeconds = 0; }
+            if (displaySeconds === 0 && isSessionActive) {
+                clearInterval(gameInterval);
+                handleToggleSession(true);
+            }
+        } else { displaySeconds = currentElapsedTime; }
+        gameTimerDisplay.textContent = `${String(Math.floor(displaySeconds / 60)).padStart(2, '0')}:${String(displaySeconds % 60).padStart(2, '0')}`;
+        currentElapsedTime++;
+    }, 1000);
+  }
+  
+  async function handleSearch(event) { event.preventDefault(); mostrarCargando(); const resultsDisplay = document.querySelector('.search-results-display'); resultsDisplay.innerHTML = '<p class="text-center text-muted">Buscando...</p>'; try { const params = new URLSearchParams(new FormData(event.target)).toString(); const response = await fetch(`/search_children?${params}`); if (!response.ok) throw new Error((await response.json()).error || 'Error en la búsqueda'); const data = await response.json(); updateMainCarouselWithResults(data.jugadores); searchOverlay.classList.add('d-none'); } catch (err) { resultsDisplay.innerHTML = `<p class="text-center text-danger">Error: ${err.message}</p>`; } finally { ocultarCargando(); } }
+
+  function updateMainCarouselWithResults(players) { let newHtml = `<div class="carousel-item search-card"><i class="bi bi-search search-icon-lg player-avatar"></i><h5 class="search-text">Buscar Jugador</h5><p class="search-description">Encontrar por nombre, <br>edad o género.</p><button class="btn btn-primary search-open-btn">Buscar</button></div>`; if (players.length > 0) { players.forEach(p => { newHtml += `<div class="carousel-item player-card" data-player-id="${p.id}" data-player-name="${p.nombre} ${p.apellido}" data-player-genero="${p.genero}" data-player-age="${p.edad}"><img src="/static/assets/img/${p.genero}.png" alt="${p.genero}" class="player-avatar"><h5 class="player-name">${p.nombre} ${p.apellido}</h5><p class="player-age">Edad: ${p.edad}</p><button class="btn btn-primary btn-sm select-player-btn" data-player-id="${p.id}" data-player-name="${p.nombre} ${p.apellido}" data-player-genero="${p.genero}" data-player-age="${p.edad}">Seleccionar</button></div>`; }); } mainCarouselTrack.innerHTML = newHtml; currentCarouselIndex = 0; updateCarouselView(); }
+  
+  async function saveSessionData(){ mostrarCargando(); document.getElementById('saveAndBackBtn').disabled=true; document.getElementById('discardAndBackBtn').disabled=true; const saveNotification = document.getElementById('saveNotification'); saveNotification.textContent='Guardando...'; saveNotification.className='mt-2 text-center text-info'; saveNotification.style.display='block'; try { const r = await fetch('/save_session_result',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(sessionResultData) }); const res = await r.json(); if(!r.ok) throw new Error(res.error||`Error: ${r.status}`); saveNotification.textContent='¡Resultados guardados!'; saveNotification.className='mt-2 text-center text-success'; setTimeout(()=>{ resultsScreen.classList.add('d-none'); playerSelectionScreen.classList.remove('d-none'); ocultarCargando(); clearInterval(settingsPollerInterval); },1500); } catch(e) { saveNotification.textContent=`Error: ${e.message}`; saveNotification.className='mt-2 text-center text-danger'; document.getElementById('saveAndBackBtn').disabled=false; document.getElementById('discardAndBackBtn').disabled=false; ocultarCargando(); } }
+  
+  async function generatePdf(){
+    const { jsPDF } = window.jspdf;
+    const doc=new jsPDF('p','mm','a4'); const now = new Date();
+    const nE=now.toLocaleString('es-EC',{timeZone:'America/Guayaquil',dateStyle:'short',timeStyle:'short'});
+    const sD_date_obj=new Date(sessionResultData.sessionStartTime);
+    const sD_formatted_date=sD_date_obj.toLocaleDateString('es-EC',{timeZone:'America/Guayaquil',day:'2-digit',month:'long',year:'numeric'}); 
+    doc.setFont("helvetica","bold");doc.setFontSize(20);doc.text("Reporte de Sesión - BasketKids",doc.internal.pageSize.getWidth()/2,20,{align:'center'});
+    doc.setFontSize(10);doc.text(`Generado: ${nE}`,doc.internal.pageSize.getWidth()-15,10,{align:'right'});doc.text(`Fecha de Sesión: ${sD_formatted_date}`,15,10); 
+    doc.setLineWidth(0.5);doc.line(15,25,doc.internal.pageSize.getWidth()-15,25);
+    doc.setFontSize(12);doc.setFont("helvetica","bold");doc.text("Paciente:",20,35);doc.setFont("helvetica","normal");doc.text(sessionResultData.playerName,42,35);
+    doc.setFont("helvetica","bold");doc.text("Edad:",20,42);doc.setFont("helvetica","normal");doc.text(`${sessionResultData.playerAge} años`,32,42);
+    doc.setFont("helvetica","bold");doc.text("Tiempo de Juego:",20,49);doc.setFont("helvetica","normal");doc.text(sessionResultData.durationText,55,49);
+    doc.setFont("helvetica","bold");doc.text(`Número de Sesión: ${sessionResultData.sessionNumber || 'N/A'}`,doc.internal.pageSize.getWidth()/2+10,35); 
+    try{ const aC=await html2canvas(document.getElementById('resultsPlayerAvatar'),{useCORS:true,backgroundColor:null}); doc.addImage(aC.toDataURL('image/png'),'PNG',160,30,25,25); }
+    catch(e){console.error('Error al capturar avatar:', e);}
+    doc.setFont("helvetica","bold");doc.setFontSize(16); doc.text("Resumen de Toques",doc.internal.pageSize.getWidth()/2,70,{align:'center'});
+    let fY = 70;
+    try {
+        const chartC = document.querySelector('.chart-container');
+        if (chartC) {
+            const cC = await html2canvas(chartC, { backgroundColor: '#FFFFFF', scale: 3 }); 
+            const cW = 170, cH = (cC.height * cW) / cC.width, cX = (doc.internal.pageSize.getWidth() - cW) / 2;
+            doc.addImage(cC.toDataURL('image/jpeg', 0.95),'JPEG', cX, 80, cW, cH);
+            fY = 80 + cH + 10;
+        } else { fY = 120; }
+    } catch(e) { console.error('Error al capturar el gráfico:', e); fY = 120; }
+    doc.setFontSize(16);doc.text("Análisis Terapéutico",15,fY);doc.setLineWidth(0.2);doc.line(15,fY+3,doc.internal.pageSize.getWidth()-15,fY+3);
+    doc.setFont("helvetica","normal");doc.setFontSize(12);
+    const diagnosticTextForPdf = (sessionResultData.diagnosticText || "").replace(/<br\s*\/?>/gi, '\n'); 
+    const sDg = doc.splitTextToSize(diagnosticTextForPdf, 180);
+    doc.text(sDg,15,fY+10);
+    doc.save(`Reporte_Sesion${sessionResultData.sessionNumber || 'N_A'}_${sessionResultData.playerName.replace(/\s/g,'_')}.pdf`);
+  }
+
+  // --- SETUP INICIAL Y LISTENERS ---
+  document.querySelectorAll('.setting-switch, .setting-slider, .setting-select').forEach(control => {
+    control.addEventListener('change', (e) => syncAllSettings(e.currentTarget));
+    if (control.type === 'range') {
+      control.addEventListener('input', (e) => {
+        const el = e.currentTarget;
+        if (el.id === 'volumen_sonido') document.getElementById('val_volumen_sonido').textContent = el.value;
+        if (el.id.includes('_hue')) updateLedColorPreview(el.id.split('_')[1]);
+      });
+    }
+  });
+
+  startButton.addEventListener('click', () => {
+    welcomeScreen.classList.add('d-none');
+    playerSelectionScreen.classList.remove('d-none');
+    updateCarouselView();
+  });
+  
+  mainCarouselTrack.addEventListener('click', function(e) {
+    const selectBtn = e.target.closest('.select-player-btn');
+    if (selectBtn) { selectPlayerHandler.call(selectBtn); return; }
+    const searchBtn = e.target.closest('.search-open-btn');
+    if (searchBtn) { searchOverlay.classList.remove('d-none'); }
+  });
+
+  toggleSessionButton.addEventListener('click', () => handleToggleSession(false)); 
+  document.getElementById('saveAndBackBtn').addEventListener('click', saveSessionData);
+  document.getElementById('discardAndBackBtn').addEventListener('click', () => { if(confirm("¿Estás seguro de descartar los resultados?")){ resultsScreen.classList.add('d-none'); playerSelectionScreen.classList.remove('d-none'); clearInterval(settingsPollerInterval); }});
+  document.getElementById('generatePdfBtn').addEventListener('click', generatePdf);
+  document.querySelector('.search-close-btn').addEventListener('click', () => searchOverlay.classList.add('d-none'));
+  document.getElementById('searchPlayerForm').addEventListener('submit', handleSearch);
+  if(carouselPrevBtn) carouselPrevBtn.addEventListener('click', () => navigateCarousel(-1));
+  if(carouselNextBtn) carouselNextBtn.addEventListener('click', () => navigateCarousel(1));
+
+  let touchStartX = 0, touchEndX = 0, isDragging = false;
+  mainCarouselTrack.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; isDragging = true; }, {passive: true});
+  mainCarouselTrack.addEventListener('touchend', e => { if (!isDragging) return; touchEndX = e.changedTouches[0].screenX; handleSwipeGesture(); isDragging = false; });
+  function handleSwipeGesture() { if (touchEndX < touchStartX - 50) navigateCarousel(1); if (touchEndX > touchStartX + 50) navigateCarousel(-1); }
+  function navigateCarousel(dir){ const items = Array.from(mainCarouselTrack.children).filter(el => el.classList.contains('player-card') || el.classList.contains('search-card')); if(items.length <= 1) return; currentCarouselIndex = (currentCarouselIndex + dir + items.length) % items.length; updateCarouselView();}
+  function updateCarouselView(){
+    const items = Array.from(mainCarouselTrack.children).filter(el => el.classList.contains('player-card') || el.classList.contains('search-card'));
+    if (items.length === 0) return;
+    const itemWidth = items[0].offsetWidth + parseFloat(getComputedStyle(items[0]).marginRight);
+    if (currentCarouselIndex >= items.length) currentCarouselIndex = items.length - 1; if (currentCarouselIndex < 0) currentCarouselIndex = 0;
+    mainCarouselTrack.style.transform=`translateX(-${currentCarouselIndex * itemWidth}px)`;
+    items.forEach((item, idx) => item.classList.toggle('active', idx === currentCarouselIndex));
+    if (items.length > 1) { if(carouselPrevBtn) carouselPrevBtn.classList.remove('d-none'); if(carouselNextBtn) carouselNextBtn.classList.remove('d-none'); }
+    else { if(carouselPrevBtn) carouselPrevBtn.classList.add('d-none'); if(carouselNextBtn) carouselNextBtn.classList.add('d-none'); }
+  }
+  updateCarouselView(); 
+  localStorage.removeItem('activeGameSession');
+
+  // ====================================================================
+  // ==  CONTROL DE SEGURIDAD PARA CIERRE/NAVEGACIÓN DE PÁGINA ==
+  // ====================================================================
+  window.addEventListener('pagehide', setGameStateOnExit);
+  window.addEventListener('beforeunload', setGameStateOnExit);
+
+});
+</script>
+{% endblock %}

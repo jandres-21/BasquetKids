@@ -1,0 +1,223 @@
+{% extends 'public/base_cpanel.html' %}
+{% block title %}Actualizar Perfil{% endblock %}
+
+{% block body %}
+<div class="container-xxl">
+  <div class="authentication-wrapper authentication-basic container-p-y">
+    <div class="authentication-inner">
+      <div class="card login-card">
+        <div class="card-body">
+
+          <!-- Encabezado -->
+          <div class="app-brand justify-content-center mb-4">
+            <a href="{{ url_for('inicio') }}" class="app-brand-link gap-2">
+              <i class="bx bx-user bx-md text-primary"></i>
+              <span class="app-brand-text demo text-body fw-bolder">Actualizar Perfil</span>
+            </a>
+          </div>
+
+          <!-- Formulario -->
+          <form id="perfilForm" method="POST" action="{{ url_for('perfil', id=usuario.id_usuario) }}">
+            <!-- Cédula (readonly) -->
+            <div class="mb-3">
+              <label for="cedula" class="form-label">Cédula</label>
+              <input
+                type="text"
+                class="form-control"
+                name="cedula"
+                id="cedula"
+                value="{{ usuario.cedula }}"
+                readonly
+              />
+              <div id="cedulaError" class="text-danger small mt-1"></div>
+            </div>
+
+            <!-- Nombre y Apellido -->
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="nombre_usuario" class="form-label">Nombre</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  name="nombre_usuario"
+                  id="nombre_usuario"
+                  placeholder="Primer nombre"
+                  value="{{ usuario.nombre_usuario }}"
+                  required
+                />
+                <div id="nameError" class="text-danger small mt-1"></div>
+              </div>
+              <div class="col-md-6">
+                <label for="apellido_usuario" class="form-label">Apellido</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  name="apellido_usuario"
+                  id="apellido_usuario"
+                  placeholder="Apellido"
+                  value="{{ usuario.apellido_usuario }}"
+                  required
+                />
+                <div id="surnameError" class="text-danger small mt-1"></div>
+              </div>
+            </div>
+
+            <!-- Área y Rol -->
+            <div class="row g-3 mt-3">
+              <!-- Área -->
+              <div class="col-md-6">
+                <label class="form-label">Área</label>
+                {% if dataLogin.rol in [2, 3] %}
+                  <input type="text" class="form-control" 
+                        value="{% for area in areas %}{% if area.id_area == usuario.id_area %}{{ area.nombre_area }}{% endif %}{% endfor %}" 
+                        readonly>
+                  <input type="hidden" name="id_area" value="{{ usuario.id_area }}">
+                {% else %}
+                  <select class="form-select" name="id_area" id="id_area" required>
+                    {% for area in areas %}
+                    <option value="{{ area.id_area }}" {% if usuario.id_area|string == area.id_area|string %}selected{% endif %}>
+                      {{ area.nombre_area }}
+                    </option>
+                    {% endfor %}
+                  </select>
+                {% endif %}
+              </div>
+
+              <!-- Rol -->
+              <div class="col-md-6">
+                <label class="form-label">Rol</label>
+                {% if dataLogin.rol in [2, 3] %}
+                  <input type="text" class="form-control" 
+                        value="{% for rol in roles %}{% if rol.id_rol == usuario.id_rol %}{{ rol.nombre_rol }}{% endif %}{% endfor %}" 
+                        readonly>
+                  <input type="hidden" name="id_rol" value="{{ usuario.id_rol }}">
+                {% else %}
+                  <select class="form-select" name="id_rol" id="id_rol" required>
+                    {% for rol in roles %}
+                    <option value="{{ rol.id_rol }}" {% if usuario.id_rol|string == rol.id_rol|string %}selected{% endif %}>
+                      {{ rol.nombre_rol }}
+                    </option>
+                    {% endfor %}
+                  </select>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Contraseña: toggle visibility y opcional -->
+            <div class="mb-3 mt-3 form-password-toggle">
+              <label for="pass_user" class="form-label">Nueva Contraseña (opcional)</label>
+              <div class="input-group input-group-merge">
+                <input
+                  type="password"
+                  class="form-control"
+                  name="pass_user"
+                  id="pass_user"
+                  placeholder="••••••••"
+                  autocomplete="new-password"
+                />
+                <span class="input-group-text cursor-pointer" onclick="togglePasswordVisibility()">
+                  <i class="bx bx-hide" id="togglePassIcon"></i>
+                </span>
+              </div>
+              <div id="passwordError" class="text-danger small mt-1"></div>
+            </div>
+
+            <!-- Botón -->
+            <button type="submit" class="btn btn-primary w-100 mt-3">Actualizar Perfil</button>
+          </form>
+
+          <!-- Volver -->
+          <div class="text-center mt-3">
+            <a href="{{ url_for('inicio') }}" class="d-flex align-items-center justify-content-center text-muted">
+              <i class="bx bx-chevron-left bx-sm me-1"></i> Volver al inicio
+            </a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block customJS %}
+<script>
+  // Mostrar/ocultar contraseña
+  function togglePasswordVisibility() {
+    const input = document.getElementById("pass_user");
+    const icon = document.getElementById("togglePassIcon");
+    input.type = input.type === "password" ? "text" : "password";
+    icon.classList.toggle("bx-hide");
+    icon.classList.toggle("bx-show");
+  }
+
+  // Validación Cédula ecuatoriana (aunque está readonly)
+  function validarCedula(cedula) {
+    if (!/^\d{10}$/.test(cedula)) return false;
+    const digitos = cedula.split('').map(Number);
+    const verificador = digitos.pop();
+    const suma = digitos.reduce((acc, d, i) => {
+      let mult = d * (i % 2 === 0 ? 2 : 1);
+      return acc + (mult > 9 ? mult - 9 : mult);
+    }, 0);
+    return (10 - (suma % 10)) % 10 === verificador;
+  }
+
+  // Validar nombre y apellido (solo letras, sin espacios ni símbolos)
+  function soloLetras(valor) {
+    return /^[A-Za-zÁÉÍÓÚáéíóúÑñ]{2,}$/.test(valor);
+  }
+
+  // Validar contraseña segura solo si escriben algo
+  function validarPassword(pass) {
+    if (pass.length === 0) return true;
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{8,}$/;
+    return regex.test(pass);
+  }
+
+  document.getElementById("perfilForm").addEventListener("submit", function (e) {
+    let valido = true;
+
+    // Cédula (si fuera editable)
+    const cedula = document.getElementById("cedula").value;
+    if (cedula && !validarCedula(cedula)) {
+      document.getElementById("cedulaError").innerText = "Cédula ecuatoriana inválida.";
+      valido = false;
+    } else {
+      document.getElementById("cedulaError").innerText = "";
+    }
+
+    // Nombre
+    const nombre = document.getElementById("nombre_usuario").value;
+    if (!soloLetras(nombre)) {
+      document.getElementById("nameError").innerText = "Nombre inválido. Solo letras, sin espacios ni símbolos.";
+      valido = false;
+    } else {
+      document.getElementById("nameError").innerText = "";
+    }
+
+    // Apellido
+    const apellido = document.getElementById("apellido_usuario").value;
+    if (!soloLetras(apellido)) {
+      document.getElementById("surnameError").innerText = "Apellido inválido. Solo letras, sin espacios ni símbolos.";
+      valido = false;
+    } else {
+      document.getElementById("surnameError").innerText = "";
+    }
+
+    // Contraseña (opcional)
+    const password = document.getElementById("pass_user").value;
+    if (!validarPassword(password)) {
+      document.getElementById("passwordError").innerText =
+        "Contraseña insegura. Debe tener al menos 8 caracteres, una mayúscula, una minúscula y un carácter especial.";
+      valido = false;
+    } else {
+      document.getElementById("passwordError").innerText = "";
+    }
+
+    if (!valido) {
+      e.preventDefault();
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+<!-- templates/base.html (ACTUALIZADO) -->
+<!DOCTYPE html>
+<html
+  lang="es"
+  class="light-style"
+  dir="ltr"
+  data-theme="theme-default"
+  data-assets-path="../assets/"
+  data-template="vertical-menu-template-free">
+  <head>
+    <meta name="viewport" content="width=1200, user-scalable=yes"> <!-- Fuerza ancho tipo escritorio en móviles -->
+    <style>
+      html, body {
+        min-width: 1200px;     /* Ancho mínimo como escritorio */
+        overflow-x: auto;      /* Permite scroll horizontal */
+        overflow-y: auto;      /* Permite scroll vertical */
+      }
+    </style>
+
+    {% include 'public/includes/head.html' %}
+    {% block customCSS %}{% endblock customCSS %}
+  </head>
+  <body class="{% if 'conectado' not in session %}auth-page-body{% endif %}">
+    {% include 'public/includes/pre_loader.html' %}
+    {% include 'public/includes/messages.html' %}
+
+    {% block body %}{% endblock body %}
+
+    {% include 'public/includes/js.html' %}
+    {% block customJS %}{% endblock customJS %}
+  </body>
+</html>

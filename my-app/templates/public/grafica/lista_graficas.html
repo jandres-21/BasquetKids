@@ -1,0 +1,570 @@
+{% extends 'public/base_cpanel.html' %}
+
+{% block title %}Crud - Python 🐍 | Gráficas{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4"> <!-- Usamos container-fluid para más ancho, py-4 para padding superior/inferior -->
+
+  <!-- Título principal del Dashboard -->
+  <div class="row mb-5">
+    <div class="col-12 text-center">
+      <h1 class="display-4 fw-bold mb-3" style="color: #28282B;">Panel de Control Administrativo</h1>
+      <p class="lead text-muted">Explora métricas clave sobre usuarios, roles y accesos del sistema.</p>
+    </div>
+  </div>
+
+  <!-- Contenedor para los gráficos de Usuarios por Rol y por Área -->
+  <div class="row mb-4 justify-content-center"> <!-- Centramos las columnas en la fila -->
+    <div class="col-lg-6 col-md-8 mb-4"> <!-- Columna para Gráfica de Roles: toma la mitad en pantallas grandes, 8/12 en medianas -->
+      <div class="card shadow-sm h-100"> <!-- h-100 asegura que las tarjetas tengan la misma altura si están lado a lado -->
+        <div class="card-header bg-white border-bottom text-center"> <!-- Fondo blanco y borde inferior para el header para un look limpio -->
+          <h5 class="mb-0 fw-bold" style="color: #28282B;">Usuarios por Rol</h5>
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center" style="min-height: 280px;"> <!-- Altura mínima para el canvas -->
+          <canvas id="graficaRoles"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6 col-md-8 mb-4"> <!-- Columna para Gráfica de Áreas -->
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white border-bottom text-center">
+          <h5 class="mb-0 fw-bold" style="color: #28282B;">Usuarios por Área</h5>
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center" style="min-height: 280px;">
+          <canvas id="graficaAreas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor para Gráfica de Accesos por Rol (Filtrable por Fecha) -->
+  <div class="row mb-4 justify-content-center">
+    <div class="col-lg-10 col-md-10"> <!-- Columna más ancha para este gráfico interactivo -->
+      <div class="card shadow-sm">
+        <div class="card-header bg-white border-bottom text-center">
+          <h5 class="mb-0 fw-bold" style="color: #28282B;">Análisis de Accesos por Rol</h5>
+          <p class="text-muted small mb-0">Seleccione un rango de fechas para visualizar la distribución de accesos.</p>
+        </div>
+        <div class="card-body">
+          <!-- Formulario de Filtrado de Fechas -->
+          <form id="formFechas" class="p-3 mb-4 rounded-3" style="background-color: #F5F5F0;"> <!-- Usamos Crema Tablero para el fondo del formulario -->
+            <div class="row g-3 align-items-end">
+              <div class="col-md-5">
+                <label for="fechaInicio" class="form-label fw-bold" style="color: #28282B;">Fecha Inicio</label>
+                <input type="date" id="fechaInicio" class="form-control" required>
+              </div>
+              <div class="col-md-5">
+                <label for="fechaFin" class="form-label fw-bold" style="color: #28282B;">Fecha Fin</label>
+                <input type="date" id="fechaFin" class="form-control" required>
+              </div>
+              <div class="col-md-2 d-grid"> <!-- d-grid para que el botón ocupe todo el ancho disponible -->
+                <button type="submit" class="btn btn-success">Filtrar</button>
+              </div>
+            </div>
+          </form>
+          <!-- Contenedor del Canvas para Accesos -->
+          <div class="chart-container" style="height: 320px;"> <!-- Altura fija para el contenedor del gráfico -->
+            <canvas id="graficaAccesos"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor para Gráfica de Fechas de Sesión por Usuario -->
+  <div class="row mb-4 justify-content-center">
+    <div class="col-lg-10 col-md-10"> <!-- Columna más ancha para este gráfico interactivo -->
+      <div class="card shadow-sm">
+        <div class="card-header bg-white border-bottom text-center">
+          <h5 class="mb-0 fw-bold" style="color: #28282B;">Historial de Sesiones por Usuario</h5>
+          <p class="text-muted small mb-0">Seleccione un usuario para visualizar la frecuencia de sus inicios de sesión.</p>
+        </div>
+        <div class="card-body">
+          <!-- Formulario de Selección de Usuario -->
+          <form id="formUsuario" class="p-3 mb-4 rounded-3" style="background-color: #F5F5F0;">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-10">
+                <label for="nombreUsuario" class="form-label fw-bold" style="color: #28282B;">Seleccione un Usuario</label>
+                <select id="nombreUsuario" class="form-select" required>
+                  <option value="" disabled selected>Cargando usuarios...</option>
+                </select>
+              </div>
+              <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-danger">Buscar</button>
+              </div>
+            </div>
+          </form>
+          <!-- Contenedor del Canvas para Fechas por Usuario -->
+          <div class="chart-container" style="height: 320px;">
+            <canvas id="graficaFechasUsuario"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Carga de Chart.js y plugin datalabels -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
+<script>
+  // Asegúrate de usar ChartDataLabels para registrar el plugin
+  Chart.register(ChartDataLabels);
+  let chartInstances = {};
+
+  // Función para generar una paleta de colores consistentes pero variados
+  function generarPaletaColores(cantidad, alpha = 0.7) {
+    const baseColors = [
+      'rgba(255, 99, 132,',    // Rojo
+      'rgba(54, 162, 235,',   // Azul
+      'rgba(255, 206, 86,',   // Amarillo
+      'rgba(75, 192, 192,',   // Verde / Cian
+      'rgba(153, 102, 255,',  // Púrpura
+      'rgba(255, 159, 64,',    // Naranja
+      'rgba(100, 200, 100,',  // Verde claro
+      'rgba(200, 100, 100,',  // Marrón rojizo
+      'rgba(100, 100, 200,',  // Azul grisáceo
+      'rgba(200, 200, 100,'   // Amarillo verdoso
+    ];
+    const colors = [];
+    for (let i = 0; i < cantidad; i++) {
+      colors.push(`${baseColors[i % baseColors.length]} ${alpha})`);
+    }
+    return colors;
+  }
+
+  // --- Funciones para cargar cada gráfica ---
+
+  function cargarGraficaRoles() {
+    fetch("{{ url_for('grafica_roles_datos') }}")
+      .then(response => response.json())
+      .then(data => {
+        const ctx = document.getElementById('graficaRoles').getContext('2d');
+        if (chartInstances.graficaRoles) chartInstances.graficaRoles.destroy();
+        
+        if (data.nombres && data.cantidades && data.nombres.length > 0) {
+          const colores = generarPaletaColores(data.nombres.length);
+          chartInstances.graficaRoles = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: data.nombres,
+              datasets: [{
+                label: 'Número de Usuarios',
+                data: data.cantidades,
+                backgroundColor: colores,
+                borderColor: colores.map(color => color.replace(', 0.7)', ', 1)')), // Borde más opaco
+                borderWidth: 1,
+                hoverOffset: 6, // ligeramente más grande en hover
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: {
+                    font: { size: 12, family: "'Open Sans', 'Public Sans', sans-serif" },
+                    color: '#28282B'
+                  }
+                },
+                title: { display: false }, // El título ahora está en el card-header
+                tooltip: {
+                  callbacks: {
+                    label: function (context) {
+                      let label = context.label || '';
+                      if (label) label += ': ';
+                      if (context.parsed !== null) {
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((context.parsed / total) * 100).toFixed(2);
+                        label += `${context.parsed} (${percentage}%)`;
+                      }
+                      return label;
+                    }
+                  },
+                  backgroundColor: 'rgba(40, 40, 43, 0.8)', // Fondo oscuro del tooltip
+                  titleColor: '#F5F5F0', // Texto claro
+                  bodyColor: '#F5F5F0',
+                  borderColor: '#A9B9C4', // Borde con color de theme
+                  borderWidth: 1
+                },
+                datalabels: {
+                  formatter: (value, ctx) => {
+                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = (value / total * 100).toFixed(1); // Un decimal
+                    return value > 0 ? `${percentage}%` : ''; // Muestra % si hay valor
+                  },
+                  color: '#fff',
+                  font: { weight: 'bold', size: 12 },
+                  textShadowBlur: 2, // Sombra para mejor legibilidad
+                  textShadowColor: 'rgba(0,0,0,0.5)'
+                }
+              }
+            }
+          });
+        } else {
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.font = '16px "Open Sans", "Public Sans", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('No hay datos disponibles.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        }
+      })
+      .catch(error => {
+        console.error('Error al cargar la gráfica de Roles:', error);
+        const ctx = document.getElementById('graficaRoles').getContext('2d');
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.font = '16px "Open Sans", "Public Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#C83C2F'; // Color de error
+        ctx.fillText('Error al cargar datos.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+      });
+  }
+
+  function cargarGraficaAreas() {
+    fetch("{{ url_for('grafica_areas_datos') }}")
+      .then(response => response.json())
+      .then(data => {
+        const ctx = document.getElementById('graficaAreas').getContext('2d');
+        if (chartInstances.graficaAreas) chartInstances.graficaAreas.destroy();
+
+        if (data.nombres && data.cantidades && data.nombres.length > 0) {
+          const colores = generarPaletaColores(data.nombres.length);
+          chartInstances.graficaAreas = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: data.nombres,
+              datasets: [{
+                label: 'Número de Usuarios',
+                data: data.cantidades,
+                backgroundColor: colores,
+                borderColor: colores.map(color => color.replace(', 0.7)', ', 1)')),
+                borderWidth: 1,
+                borderRadius: 8, // Bordes más redondeados para las barras
+                hoverBackgroundColor: colores.map(color => color.replace(', 0.7)', ', 0.9)')) // Color más opaco en hover
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                title: { display: false },
+                tooltip: {
+                  backgroundColor: 'rgba(40, 40, 43, 0.8)',
+                  titleColor: '#F5F5F0',
+                  bodyColor: '#F5F5F0',
+                  borderColor: '#A9B9C4',
+                  borderWidth: 1
+                },
+                datalabels: {
+                  anchor: 'end',
+                  align: 'top',
+                  formatter: (value) => value > 0 ? value : '',
+                  color: '#28282B', // Color de texto oscuro para que resalte
+                  font: { weight: 'bold', size: 12 },
+                  offset: 5 // Separación de la barra
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    stepSize: 1,
+                    font: { family: "'Open Sans', 'Public Sans', sans-serif", size: 12 },
+                    color: '#28282B'
+                  },
+                  grid: { color: 'rgba(0,0,0,0.05)' },
+                  title: {
+                    display: true,
+                    text: 'Cantidad de Usuarios',
+                    font: { size: 14, weight: 'bold', family: "'Open Sans', 'Public Sans', sans-serif" },
+                    color: '#28282B'
+                  }
+                },
+                x: {
+                  ticks: {
+                    font: { family: "'Open Sans', 'Public Sans', sans-serif", size: 12 },
+                    color: '#28282B'
+                  },
+                  grid: { display: false },
+                  title: {
+                    display: true,
+                    text: 'Área',
+                    font: { size: 14, weight: 'bold', family: "'Open Sans', 'Public Sans', sans-serif" },
+                    color: '#28282B'
+                  }
+                }
+              }
+            }
+          });
+        } else {
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.font = '16px "Open Sans", "Public Sans", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('No hay datos disponibles.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        }
+      })
+      .catch(error => {
+        console.error('Error al cargar la gráfica de Áreas:', error);
+        const ctx = document.getElementById('graficaAreas').getContext('2d');
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.font = '16px "Open Sans", "Public Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#C83C2F';
+        ctx.fillText('Error al cargar datos.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+      });
+  }
+
+  function cargarGraficaAccesos(fechaInicio, fechaFin) {
+    const url = `{{ url_for('grafica_accesos_datos') }}?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        const ctx = document.getElementById('graficaAccesos').getContext('2d');
+        if (chartInstances.graficaAccesos) chartInstances.graficaAccesos.destroy();
+        
+        if (data.roles && data.cantidades && data.roles.length > 0) {
+          const colores = generarPaletaColores(data.roles.length);
+          chartInstances.graficaAccesos = new Chart(ctx, {
+            type: 'pie',
+            data: {
+              labels: data.roles,
+              datasets: [{
+                label: 'Número de Accesos',
+                data: data.cantidades,
+                backgroundColor: colores,
+                borderColor: colores.map(color => color.replace(', 0.7)', ', 1)')),
+                borderWidth: 1,
+                hoverOffset: 6,
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: { font: { size: 12, family: "'Open Sans', 'Public Sans', sans-serif" }, color: '#28282B' }
+                },
+                title: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: function (context) {
+                      let label = context.label || '';
+                      if (label) label += ': ';
+                      if (context.parsed !== null) {
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((context.parsed / total) * 100).toFixed(2);
+                        label += `${context.parsed} (${percentage}%)`;
+                      }
+                      return label;
+                    }
+                  },
+                  backgroundColor: 'rgba(40, 40, 43, 0.8)',
+                  titleColor: '#F5F5F0',
+                  bodyColor: '#F5F5F0',
+                  borderColor: '#A9B9C4',
+                  borderWidth: 1
+                },
+                datalabels: {
+                  formatter: (value, ctx) => {
+                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = (value / total * 100).toFixed(1);
+                    return value > 0 ? `${percentage}%` : '';
+                  },
+                  color: '#fff',
+                  font: { weight: 'bold', size: 12 },
+                  textShadowBlur: 2,
+                  textShadowColor: 'rgba(0,0,0,0.5)'
+                }
+              }
+            }
+          });
+        } else {
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.font = '16px "Open Sans", "Public Sans", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('No hay accesos en este rango de fechas.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        }
+      })
+      .catch(error => {
+        console.error('Error al cargar la gráfica de Accesos:', error);
+        const ctx = document.getElementById('graficaAccesos').getContext('2d');
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.font = '16px "Open Sans", "Public Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#C83C2F';
+        ctx.fillText('Error al cargar datos.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+      });
+  }
+
+  function cargarNombresUsuarios() {
+    fetch("{{ url_for('obtener_nombres_usuarios') }}")
+      .then(response => response.json())
+      .then(data => {
+        const select = document.getElementById('nombreUsuario');
+        select.innerHTML = '<option value="" disabled selected>Seleccione un usuario</option>';
+        if (data.nombres && data.nombres.length > 0) {
+          data.nombres.forEach(nombre => {
+            const option = document.createElement('option');
+            option.value = nombre;
+            option.textContent = nombre;
+            select.appendChild(option);
+          });
+        } else {
+          select.innerHTML = '<option value="" disabled selected>No se encontraron usuarios</option>';
+        }
+      })
+      .catch(error => {
+        console.error('Error al cargar los nombres de los usuarios:', error);
+        const select = document.getElementById('nombreUsuario');
+        select.innerHTML = '<option value="" disabled selected>Error al cargar usuarios</option>';
+      });
+  }
+
+  function cargarGraficaFechasUsuario(nombreUsuario) {
+    const url = `{{ url_for('grafica_fechas_usuario_datos') }}?nombre_usuario=${encodeURIComponent(nombreUsuario)}`;
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        const ctx = document.getElementById('graficaFechasUsuario').getContext('2d');
+        if (chartInstances.graficaFechasUsuario) chartInstances.graficaFechasUsuario.destroy();
+        
+        if (data.fechas && data.cantidades && data.fechas.length > 0) {
+          chartInstances.graficaFechasUsuario = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.fechas,
+              datasets: [{
+                label: 'Conteo de Sesiones',
+                data: data.cantidades,
+                backgroundColor: 'rgba(169, 185, 196, 0.4)', // Gris Plata más transparente
+                borderColor: '#A9B9C4', // Gris Plata como borde
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true,
+                pointBackgroundColor: '#A9B9C4', // Puntos con Gris Plata
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#28282B', // Hover en Gris Asfalto
+                pointHoverBorderColor: '#A9B9C4'
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                title: { display: false },
+                tooltip: {
+                  backgroundColor: 'rgba(40, 40, 43, 0.8)',
+                  titleColor: '#F5F5F0',
+                  bodyColor: '#F5F5F0',
+                  borderColor: '#A9B9C4',
+                  borderWidth: 1
+                },
+                datalabels: { display: false }
+              },
+              scales: {
+                x: {
+                  type: 'category',
+                  ticks: {
+                    font: { family: "'Open Sans', 'Public Sans', sans-serif", size: 12 },
+                    color: '#28282B'
+                  },
+                  grid: { color: 'rgba(0,0,0,0.05)' },
+                  title: {
+                    display: true,
+                    text: 'Fecha',
+                    font: { size: 14, weight: 'bold', family: "'Open Sans', 'Public Sans', sans-serif" },
+                    color: '#28282B'
+                  }
+                },
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    stepSize: 1,
+                    font: { family: "'Open Sans', 'Public Sans', sans-serif", size: 12 },
+                    color: '#28282B'
+                  },
+                  grid: { color: 'rgba(0,0,0,0.05)' },
+                  title: {
+                    display: true,
+                    text: 'Conteo de Sesiones',
+                    font: { size: 14, weight: 'bold', family: "'Open Sans', 'Public Sans', sans-serif" },
+                    color: '#28282B'
+                  }
+                }
+              }
+            }
+          });
+        } else {
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.font = '16px "Open Sans", "Public Sans", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`No hay datos de sesión para ${nombreUsuario}.`, ctx.canvas.width / 2, ctx.canvas.height / 2);
+        }
+      })
+      .catch(error => {
+        console.error('Error al cargar la gráfica de Fechas de Usuario:', error);
+        const ctx = document.getElementById('graficaFechasUsuario').getContext('2d');
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.font = '16px "Open Sans", "Public Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#C83C2F';
+        ctx.fillText('Error al cargar datos.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+      });
+  }
+
+  // --- Manejadores de eventos de formularios ---
+  document.getElementById('formFechas').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const fechaInicio = document.getElementById('fechaInicio').value;
+    const fechaFin = document.getElementById('fechaFin').value;
+    if (fechaInicio && fechaFin) {
+      cargarGraficaAccesos(fechaInicio, fechaFin);
+    } else {
+      alert('Por favor, seleccione un rango de fechas para filtrar los accesos.');
+    }
+  });
+
+  document.getElementById('formUsuario').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const nombreUsuario = document.getElementById('nombreUsuario').value;
+    if (nombreUsuario) {
+      cargarGraficaFechasUsuario(nombreUsuario);
+    } else {
+      alert('Por favor, seleccione un usuario para ver su historial de sesiones.');
+    }
+  });
+
+  // --- Cargar las gráficas y nombres de usuarios al cargar la página ---
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarGraficaRoles();
+    cargarGraficaAreas();
+    cargarNombresUsuarios();
+
+    // Establecer fechas por defecto para el filtro de accesos (ejemplo: últimos 30 días)
+    const today = new Date();
+    const last30Days = new Date(today);
+    last30Days.setDate(today.getDate() - 30);
+
+    const formatDate = (date) => date.toISOString().split('T')[0];
+
+    document.getElementById('fechaInicio').value = formatDate(last30Days);
+    document.getElementById('fechaFin').value = formatDate(today);
+
+    // Cargar la gráfica de accesos con las fechas por defecto
+    cargarGraficaAccesos(formatDate(last30Days), formatDate(today));
+  });
+</script>
+{% endblock %}

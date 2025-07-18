@@ -1,0 +1,516 @@
+{% extends 'public/base_cpanel.html' %}
+
+{% block title %}Panel Estadístico de Terapia{% endblock %}
+
+{% block body %}
+<!-- =================================================================
+     ESTILOS CSS (dentro del body para seguir la estructura de la plantilla)
+     ================================================================= -->
+<style>
+/* --- ESTILOS PARA INDICADOR DE CARGA --- */
+.chart-loader { 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    z-index: 10; 
+    display: none; 
+}
+.spinner-border { 
+    width: 3rem; 
+    height: 3rem; 
+}
+.content-loading .chart-area, 
+.content-loading .table-responsive,
+.content-loading .chart-area-form canvas { 
+    opacity: 0.3; 
+    filter: blur(2px); 
+    pointer-events: none; 
+}
+.content-loading .chart-loader { 
+    display: block; 
+}
+
+/* --- ESTILOS PARA LAS TARJETAS Y GRÁFICOS --- */
+.card-chart, .card-form { 
+    display: flex; 
+    flex-direction: column; 
+    height: 100%; 
+}
+.card-chart .card-body, .card-form .card-body { 
+    flex-grow: 1; 
+    display: flex; 
+    flex-direction: column; 
+}
+.chart-area { 
+    position: relative; 
+    height: 100%; 
+    width: 100%; 
+}
+.chart-area-form { 
+    flex-grow: 1; 
+    margin-top: 1rem; 
+    position: relative;
+    min-height: 300px; /* Asegura una altura mínima para los gráficos interactivos */
+}
+</style>
+
+<!-- =================================================================
+     CONTENIDO HTML DEL PANEL
+     ================================================================= -->
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <h1 class="display-4">Panel Estadístico</h1>
+            <p class="lead text-muted">Análisis del rendimiento y patrones de juego.</p>
+        </div>
+    </div>
+    
+    <!-- Fila 1: Gráficos Generales -->
+    <div class="row">
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card card-chart shadow-sm h-100">
+                <div class="card-header text-center"><h5 class="card-title">Distribución por Género</h5></div>
+                <div class="card-body position-relative content-loading" id="containerGraficoGenero">
+                    <div class="chart-loader"><div class="spinner-border text-primary"></div></div>
+                    <div class="chart-area"><canvas id="graficoGenero"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card card-chart shadow-sm h-100">
+                <div class="card-header text-center"><h5 class="card-title">Distribución por Edades</h5></div>
+                <div class="card-body position-relative content-loading" id="containerGraficoEdades">
+                    <div class="chart-loader"><div class="spinner-border text-secondary"></div></div>
+                    <div class="chart-area"><canvas id="graficoEdades"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-12 mb-4">
+            <div class="card card-chart shadow-sm h-100">
+                <div class="card-header text-center"><h5 class="card-title">Diagnósticos Generales</h5></div>
+                <div class="card-body position-relative content-loading" id="containerGraficoRendimiento">
+                    <div class="chart-loader"><div class="spinner-border text-success"></div></div>
+                    <div class="chart-area"><canvas id="graficoRendimiento"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fila 2: Tablas Top 5 - CORREGIDAS PARA MOSTRARSE UNA SOBRE OTRA -->
+    <div class="row">
+        <div class="col-lg-12 mb-4"> <!-- CAMBIADO DE col-lg-6 a col-lg-12 -->
+            <div class="card shadow-sm h-100">
+                <div class="card-header text-center"><h5 class="card-title">Top 5 Sesiones Individuales</h5></div>
+                <div class="card-body position-relative content-loading" id="containerTablaMejoresSesiones">
+                    <div class="chart-loader"><div class="spinner-border text-info"></div></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead><tr><th>Jugador</th><th>Sesión</th><th>Fecha</th><th class="text-success fw-bold">Aros</th><th>Z. Izq</th><th>Z. Der</th><th>Z. Arr</th></tr></thead>
+                            <tbody id="mejoresSesionesTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-12 mb-4"> <!-- CAMBIADO DE col-lg-6 a col-lg-12 -->
+            <div class="card shadow-sm h-100">
+                <div class="card-header text-center"><h5 class="card-title">Top 5 Jugadores por Aros Totales</h5></div>
+                <div class="card-body position-relative content-loading" id="containerTablaMejoresJugadores">
+                    <div class="chart-loader"><div class="spinner-border text-info"></div></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead><tr><th>#</th><th>Jugador</th><th>Edad</th><th class="text-success fw-bold">Total Aros</th><th>Total Z. Izq</th><th>Total Z. Der</th><th>Total Z. Arr</th></tr></thead>
+                            <tbody id="mejoresJugadoresTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Fila 3: Gráficos Interactivos - CORREGIDOS PARA MOSTRARSE UNO SOBRE OTRO -->
+    <div class="row">
+        <div class="col-lg-12 mb-4"> <!-- CAMBIADO DE col-lg-6 a col-lg-12 -->
+            <div class="card card-form shadow-sm h-100">
+                <div class="card-header text-center"><h5 class="card-title">Análisis por Sesión</h5></div>
+                <div class="card-body">
+                    <form id="formRendimientoSesion" class="bg-light p-3 rounded mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-7"><label for="selectJugadorRendimiento" class="form-label">Jugador</label><select id="selectJugadorRendimiento" class="form-select" required></select></div>
+                            <div class="col-md-5"><label for="selectSesionRendimiento" class="form-label">Sesión</label><select id="selectSesionRendimiento" class="form-select" required disabled></select></div>
+                        </div>
+                        <div class="d-grid mt-2"><button type="submit" class="btn btn-sm btn-outline-info">Ver Gráfico</button></div>
+                    </form>
+                    <div class="chart-area-form content-loading" id="containerRendimientoSesion">
+                        <div class="chart-loader"><div class="spinner-border text-info"></div></div>
+                        <canvas id="graficoRendimientoSesion"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-12 mb-4"> <!-- CAMBIADO DE col-lg-6 a col-lg-12 -->
+            <div class="card card-form shadow-sm h-100">
+                <div class="card-header text-center"><h5 class="card-title">Evolución del Jugador</h5></div>
+                <div class="card-body">
+                    <form id="formEvolucionJugador" class="bg-light p-3 rounded mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-6"><label for="selectJugadorEvolucion" class="form-label">Jugador</label><select id="selectJugadorEvolucion" class="form-select" required></select></div>
+                            <div class="col-md-3"><label for="selectSesionDesde" class="form-label">Desde</label><select id="selectSesionDesde" class="form-select" required disabled></select></div>
+                            <div class="col-md-3"><label for="selectSesionHasta" class="form-label">Hasta</label><select id="selectSesionHasta" class="form-select" required disabled></select></div>
+                        </div>
+                        <div class="d-grid mt-2"><button type="submit" class="btn btn-sm btn-primary">Ver Gráfico</button></div>
+                    </form>
+                    <div class="chart-area-form content-loading" id="containerEvolucion">
+                        <div class="chart-loader"><div class="spinner-border"></div></div>
+                        <canvas id="graficoEvolucion"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-12 mb-4">
+            <div class="card card-form shadow-sm h-100">
+                <div class="card-header text-center"><h5 class="card-title">Comparación entre Sesiones</h5></div>
+                <div class="card-body">
+                    <form id="formComparacion" class="bg-light p-3 rounded mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3"><label for="selectJugador1" class="form-label">Jugador 1</label><select id="selectJugador1" class="form-select"></select></div>
+                            <div class="col-md-2"><label for="selectSesion1" class="form-label">Sesión</label><select id="selectSesion1" class="form-select" disabled></select></div>
+                            <div class="col-md-3"><label for="selectJugador2" class="form-label">Jugador 2</label><select id="selectJugador2" class="form-select"></select></div>
+                            <div class="col-md-2"><label for="selectSesion2" class="form-label">Sesión</label><select id="selectSesion2" class="form-select" disabled></select></div>
+                            <div class="col-md-2 d-grid"><button type="submit" class="btn btn-sm btn-success">Comparar</button></div>
+                        </div>
+                    </form>
+                    <div class="chart-area-form content-loading" id="containerComparacion">
+                        <div class="chart-loader"><div class="spinner-border text-success"></div></div>
+                        <canvas id="graficoComparacion"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================
+     SCRIPTS JAVASCRIPT (al final del body)
+     ================================================================= -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        Chart.register(ChartDataLabels);
+        let chartInstances = {};
+        let allPlayersData = [];
+
+        const setLoadingState = (containerId, isLoading) => { 
+            const el = document.getElementById(containerId); 
+            if(el) el.classList.toggle('content-loading', isLoading); 
+        };
+
+        const displayCanvasMessage = (canvasId, message) => { 
+            const canvas = document.getElementById(canvasId); 
+            if(!canvas) return;
+            if(chartInstances[canvasId]) chartInstances[canvasId].destroy(); 
+            const ctx = canvas.getContext('2d'); 
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.font = '16px sans-serif'; 
+            ctx.textAlign = 'center'; 
+            ctx.fillStyle = '#6c757d'; 
+            ctx.fillText(message || 'No hay datos disponibles.', canvas.width / 2, canvas.height / 2);
+        };
+
+        const populateSelect = (selectEl, data, placeholder) => { 
+            selectEl.innerHTML = `<option value="" disabled selected>${placeholder}</option>`; 
+            data.forEach(item => selectEl.add(new Option(item.text, item.value))); 
+        };
+
+        const generateChart = (config) => {
+            setLoadingState(config.containerId, true);
+            fetch(config.url)
+                .then(res => {
+                    if (!res.ok) {
+                        // Si la respuesta no es 2xx, lanza un error con el mensaje de Flask si existe
+                        return res.json().then(errorData => Promise.reject(errorData.error || res.statusText));
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    if (chartInstances[config.canvasId]) chartInstances[config.canvasId].destroy();
+                    
+                    // Asegúrate de que haya datos y que al menos uno sea mayor a 0
+                    if (data.labels && data.values && data.values.some(v => v > 0)) {
+                        if(config.capitalizeLabels) data.labels = data.labels.map(l => l.charAt(0).toUpperCase() + l.slice(1));
+                        if((config.type === 'doughnut' || config.type === 'pie') && data.labels.length > 1) {
+                            const sortedData = data.labels.map((l, i) => ({l, v: data.values[i]})).sort((a,b) => b.v - a.v);
+                            data.labels = sortedData.map(i => i.l);
+                            data.values = sortedData.map(i => i.v);
+                        }
+                        chartInstances[config.canvasId] = new Chart(document.getElementById(config.canvasId), {type:config.type,data:{labels:data.labels,datasets:[{label:config.datasetLabel,data:data.values,backgroundColor:config.colors,borderColor:'#fff',borderWidth:2}]},options:config.options});
+                    } else { 
+                        displayCanvasMessage(config.canvasId, config.noDataMessage || 'No hay datos para mostrar.'); 
+                    }
+                })
+                .catch(errorMsg => { // Ahora errorMsg puede ser el string de error de Flask
+                    console.error(`Error al cargar ${config.canvasId}:`, errorMsg);
+                    displayCanvasMessage(config.canvasId, `Error: ${errorMsg}`); 
+                })
+                .finally(() => setLoadingState(config.containerId, false));
+        };
+
+        const chartOptions = {
+            pie: {responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},datalabels:{color:'#fff',font:{weight:'bold'}}}},
+            line: {responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'},datalabels:{display:false}},scales:{y:{beginAtZero:true}}},
+            bar: {indexAxis:'y',responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,ticks:{callback:v=>Math.abs(v)}},y:{stacked:true}},plugins:{tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${Math.abs(c.raw)}`}},datalabels:{formatter:v=>Math.abs(v)>0?Math.abs(v):'',color:'#fff'}}}
+        };
+        
+        const cargarGraficosGenerales = () => {
+            generateChart({containerId:'containerGraficoGenero',canvasId:'graficoGenero',url:"{{url_for('grafico_genero_datos')}}",type:'doughnut',capitalizeLabels:true,datasetLabel:'Jugadores',colors:['#36A2EB','#FF6384'],options:chartOptions.pie});
+            generateChart({containerId:'containerGraficoEdades',canvasId:'graficoEdades',url:"{{url_for('grafico_edades_agrupadas_datos')}}",type:'pie',datasetLabel:'Jugadores',colors:['#4BC0C0','#FF9F40','#9966FF','#FFCD56'],options:chartOptions.pie});
+            generateChart({containerId:'containerGraficoRendimiento',canvasId:'graficoRendimiento',url:"{{url_for('grafico_distribucion_rendimiento_datos')}}",type:'doughnut',datasetLabel:'Sesiones',colors:['#28a745','#17a2b8','#ffc107', '#dc3545','#6c757d'],options:chartOptions.pie});
+        };
+        
+        const cargarTablas = () => {
+            setLoadingState('containerTablaMejoresSesiones',true);
+            fetch("{{url_for('tabla_mejores_sesiones_datos')}}").then(r=>r.json()).then(d=>{const t=document.getElementById('mejoresSesionesTableBody');t.innerHTML='';if(d.mejores_sesiones&&d.mejores_sesiones.length>0){d.mejores_sesiones.forEach(s=>{const r=t.insertRow();r.innerHTML=`<td>${s.nombre} ${s.apellido}</td><td>${s.nro_sesion}</td><td>${s.fecha}</td><td class="text-success fw-bold">${s.cantidad_aros}</td><td>${s.zona_izq}</td><td>${s.zona_der}</td><td>${s.zona_arr}</td>`;});}else{t.innerHTML='<tr><td colspan="7" class="text-center text-muted">No hay sesiones para mostrar.</td></tr>';}}).catch(err=>{console.error("Error cargando tabla sesiones:",err);document.getElementById('mejoresSesionesTableBody').innerHTML='<tr><td colspan="7" class="text-center text-danger">Error al cargar.</td></tr>';}).finally(()=>setLoadingState('containerTablaMejoresSesiones',false));
+            setLoadingState('containerTablaMejoresJugadores',true);
+            fetch("{{url_for('tabla_mejores_jugadores_totales_datos')}}").then(r=>r.json()).then(d=>{const t=document.getElementById('mejoresJugadoresTableBody');t.innerHTML='';if(d.mejores_jugadores&&d.mejores_jugadores.length>0){d.mejores_jugadores.forEach((j,i)=>{const r=t.insertRow();r.innerHTML=`<th scope="row">${i+1}</th><td>${j.nombre} ${j.apellido}</td><td>${j.edad}</td><td class="text-success fw-bold">${j.total_aros}</td><td>${j.total_zona_izq}</td><td>${j.total_zona_der}</td><td>${j.total_zona_arr}</td>`;});}else{t.innerHTML='<tr><td colspan="7" class="text-center text-muted">No hay jugadores para mostrar.</td></tr>';}}).catch(err=>{console.error("Error cargando tabla jugadores:",err);document.getElementById('mejoresJugadoresTableBody').innerHTML='<tr><td colspan="7" class="text-center text-danger">Error al cargar.</td></tr>';}).finally(()=>setLoadingState('containerTablaMejoresJugadores',false));
+        };
+
+        const cargarGraficoRendimientoSesion = (jugadorId, nroSesion) => {
+            if (!jugadorId || !nroSesion) {
+                displayCanvasMessage('graficoRendimientoSesion', 'Seleccione un jugador y una sesión.');
+                return;
+            }
+            generateChart({containerId:'containerRendimientoSesion',canvasId:'graficoRendimientoSesion',url:`/grafico_rendimiento_sesion_datos?jugador_id=${jugadorId}&nro_sesion=${nroSesion}`,type:'pie',datasetLabel:'Toques',colors:['#36A2EB','#FF6384','#FFCD56','#4BC0C0'],options:{...chartOptions.pie,maintainAspectRatio:false}});
+        };
+        
+        const cargarGraficoEvolucion = (jugadorId, sesionDesde, sesionHasta) => {
+            if (!jugadorId || !sesionDesde || !sesionHasta) {
+                displayCanvasMessage('graficoEvolucion', 'Seleccione un jugador y un rango de sesiones.');
+                return;
+            }
+            setLoadingState('containerEvolucion',true);
+            fetch(`/grafico_evolucion_datos?jugador_id=${jugadorId}&sesion_desde=${sesionDesde}&sesion_hasta=${sesionHasta}`)
+                .then(r=> {
+                    if (!r.ok) {
+                        return r.json().then(errorData => Promise.reject(errorData.error || r.statusText));
+                    }
+                    return r.json();
+                })
+                .then(data=>{
+                    if(chartInstances.graficoEvolucion)chartInstances.graficoEvolucion.destroy();
+                    // Este if (data.error) ya está cubierto por el catch de la promesa,
+                    // pero lo dejo como un fallback para errores no HTTP 2xx
+                    if(data.error){ 
+                        displayCanvasMessage('graficoEvolucion',data.error);
+                        return;
+                    }
+                    const ds=[
+                        {l:'Aros',d:data.datasets.aros,c:'#36A2EB'},
+                        {l:'Z.Izq',d:data.datasets.izq,c:'#FF6384'},
+                        {l:'Z.Der',d:data.datasets.der,c:'#FFCD56'},
+                        {l:'Z.Arr',d:data.datasets.arr,c:'#4BC0C0'}
+                    ].map(i=>({label:i.l,data:i.d,borderColor:i.c,fill:false,tension:0.1,borderWidth:2}));
+                    chartInstances.graficoEvolucion=new Chart('graficoEvolucion',{type:'line',data:{labels:data.labels,datasets:ds},options:chartOptions.line});
+                })
+                .catch(errorMsg => {
+                    console.error("Error en gráfico evolución:", errorMsg);
+                    displayCanvasMessage('graficoEvolucion', `Error: ${errorMsg}`);
+                })
+                .finally(()=>setLoadingState('containerEvolucion',false));
+        };
+        
+        const cargarGraficoComparacion = async (j1,s1,j2,s2)=>{
+            if (!j1 || !s1 || !j2 || !s2) {
+                displayCanvasMessage('graficoComparacion', 'Seleccione dos jugadores y sus sesiones para comparar.');
+                return;
+            }
+            setLoadingState('containerComparacion',true);
+            if(chartInstances.graficoComparacion)chartInstances.graficoComparacion.destroy();
+            try{
+                const fetchAndHandleError = async (url) => {
+                    const res = await fetch(url);
+                    if (!res.ok) {
+                        const errorData = await res.json();
+                        throw new Error(errorData.error || res.statusText);
+                    }
+                    return res.json();
+                };
+
+                const[d1,d2]=await Promise.all([
+                    fetchAndHandleError(`/grafico_rendimiento_sesion_datos?jugador_id=${j1}&nro_sesion=${s1}`),
+                    fetchAndHandleError(`/grafico_rendimiento_sesion_datos?jugador_id=${j2}&nro_sesion=${s2}`)
+                ]);
+                const getLabel=(id,sesId)=>{
+                    const p=allPlayersData.find(p => p.id == id);
+                    if(!p)return`J ${id}`; 
+                    if(sesId==='todas')return`${p.nombre_completo} (Total)`;
+                    return`${p.nombre_completo} S.${sesId}`; 
+                };
+                const v1=(d1.values||[0,0,0,0]).map(v=>-v);
+                const v2=d2.values||[0,0,0,0];
+                const ls=d1.labels&&d1.labels.length>0?d1.labels:["Aros","Z.Izq","Z.Der","Z.Arr"];
+                chartInstances.graficoComparacion=new Chart('graficoComparacion',{type:'bar',data:{labels:ls,datasets:[{label:getLabel(j1,s1),data:v1,backgroundColor:'#9966FF'},{label:getLabel(j2,s2),data:v2,backgroundColor:'#4BC0C0'}]},options:chartOptions.bar});
+            } catch(e) {
+                console.error("Error comparando:",e);
+                displayCanvasMessage('graficoComparacion',`Error al cargar datos de comparación: ${e.message || e}`);
+            } finally {
+                setLoadingState('containerComparacion',false);
+            }
+        };
+
+        const actualizarDropdownSesiones = (selectJugadorEl, selectSesionEl, placeholder = 'Seleccione...') => {
+            const jugadorId = selectJugadorEl.value;
+            selectSesionEl.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+            selectSesionEl.disabled = true;
+            if (jugadorId) {
+                const playerData = allPlayersData.find(p => p.id == jugadorId); 
+                if (playerData && playerData.sesiones && playerData.sesiones.length > 0) {
+                    selectSesionEl.add(new Option('Total Acumulado', 'todas'));
+                    playerData.sesiones.forEach(s => selectSesionEl.add(new Option(`S.${s.nro_sesion} (${s.fecha})`, s.nro_sesion)));
+                    selectSesionEl.disabled = false;
+                } else {
+                    selectSesionEl.innerHTML = '<option value="">Sin sesiones</option>';
+                    // Limpiar gráficos interactivos y mostrar un mensaje si no hay sesiones
+                    if (selectSesionEl.id === 'selectSesionRendimiento') displayCanvasMessage('graficoRendimientoSesion', 'El jugador seleccionado no tiene sesiones.');
+                    // Para comparación, es un poco más complejo, solo limpiar si es uno de los selectores de sesión
+                    if (selectSesionEl.id === 'selectSesion1' || selectSesionEl.id === 'selectSesion2') displayCanvasMessage('graficoComparacion', 'El jugador seleccionado no tiene sesiones para comparar.');
+                }
+            } else {
+                // Si no hay jugador seleccionado, deshabilitar y poner "Sin sesiones"
+                selectSesionEl.innerHTML = '<option value="" disabled selected>Seleccione un jugador primero</option>';
+            }
+        };
+        
+        const actualizarDropdownsRango = (selectJugadorEl, selectDesdeEl, selectHastaEl) => {
+            const jugadorId = selectJugadorEl.value;
+            [selectDesdeEl, selectHastaEl].forEach(s => { s.innerHTML = ''; s.disabled = true; });
+            if (jugadorId) {
+                const playerData = allPlayersData.find(p => p.id == jugadorId);
+                if (playerData && playerData.sesiones && playerData.sesiones.length > 0) {
+                    const sesiones = [...playerData.sesiones].sort((a,b) => a.nro_sesion - b.nro_sesion); // Asegurar orden
+                    sesiones.forEach(s => {
+                        selectDesdeEl.add(new Option(`S.${s.nro_sesion}`, s.nro_sesion));
+                        selectHastaEl.add(new Option(`S.${s.nro_sesion}`, s.nro_sesion));
+                    });
+                    if (sesiones.length > 0) {
+                        selectDesdeEl.value = sesiones[0].nro_sesion; // Por defecto la primera sesión
+                        selectHastaEl.value = sesiones[sesiones.length - 1].nro_sesion; // Por defecto la última
+                    }
+                    [selectDesdeEl, selectHastaEl].forEach(s => s.disabled = false);
+                } else {
+                    displayCanvasMessage('graficoEvolucion', 'El jugador seleccionado no tiene sesiones registradas.');
+                    [selectDesdeEl, selectHastaEl].forEach(s => s.innerHTML = '<option value="">Sin sesiones</option>');
+                }
+            } else {
+                [selectDesdeEl, selectHastaEl].forEach(s => s.innerHTML = '<option value="" disabled selected>Seleccione un jugador primero</option>');
+            }
+        };
+
+        // Event Listeners para los formularios
+        document.getElementById('formRendimientoSesion').addEventListener('submit',(e)=>{e.preventDefault();const j=document.getElementById('selectJugadorRendimiento').value,s=document.getElementById('selectSesionRendimiento').value;cargarGraficoRendimientoSesion(j,s);});
+        document.getElementById('formEvolucionJugador').addEventListener('submit',(e)=>{e.preventDefault();const j=document.getElementById('selectJugadorEvolucion').value,d=document.getElementById('selectSesionDesde').value,h=document.getElementById('selectSesionHasta').value;if(parseInt(d)>parseInt(h)){alert("'Desde' no puede ser mayor que 'Hasta'");return;}cargarGraficoEvolucion(j,d,h);});
+        document.getElementById('formComparacion').addEventListener('submit',(e)=>{e.preventDefault();const j1=document.getElementById('selectJugador1').value,s1=document.getElementById('selectSesion1').value,j2=document.getElementById('selectJugador2').value,s2=document.getElementById('selectSesion2').value;if(j1===j2&&s1===s2){alert("No se puede comparar la misma sesión del mismo jugador.");return;}cargarGraficoComparacion(j1,s1,j2,s2);});
+        // Event Listeners para los selectores de jugadores
+        document.getElementById('selectJugadorRendimiento').addEventListener('change',()=>actualizarDropdownSesiones(document.getElementById('selectJugadorRendimiento'),document.getElementById('selectSesionRendimiento'), 'Seleccione Sesión'));
+        document.getElementById('selectJugadorEvolucion').addEventListener('change',()=>actualizarDropdownsRango(document.getElementById('selectJugadorEvolucion'),document.getElementById('selectSesionDesde'),document.getElementById('selectSesionHasta')));
+        document.getElementById('selectJugador1').addEventListener('change',()=>actualizarDropdownSesiones(document.getElementById('selectJugador1'),document.getElementById('selectSesion1'), 'Seleccione Sesión'));
+        document.getElementById('selectJugador2').addEventListener('change',()=>actualizarDropdownSesiones(document.getElementById('selectJugador2'),document.getElementById('selectSesion2'), 'Seleccione Sesión'));
+
+        const init = async () => {
+            try {
+                const response = await fetch("{{ url_for('obtener_jugadores_para_select') }}");
+                if (!response.ok) throw new Error('Fallo al obtener la lista de jugadores');
+                
+                const data = await response.json();
+                allPlayersData = data.jugadores || [];
+                
+                cargarGraficosGenerales();
+                cargarTablas();
+
+                if (allPlayersData.length === 0) {
+                    displayCanvasMessage('graficoRendimientoSesion', 'No hay jugadores registrados.');
+                    displayCanvasMessage('graficoEvolucion', 'No hay jugadores registrados.');
+                    displayCanvasMessage('graficoComparacion', 'No hay jugadores registrados.');
+                    document.querySelectorAll('form button').forEach(btn => btn.disabled = true);
+                    return;
+                }
+
+                const opts = allPlayersData.map(p => ({text: p.nombre_completo, value: p.id}));
+                populateSelect(document.getElementById('selectJugadorRendimiento'), opts, 'Seleccione Jugador');
+                populateSelect(document.getElementById('selectJugadorEvolucion'), opts, 'Seleccione Jugador');
+                populateSelect(document.getElementById('selectJugador1'), opts, 'Seleccione Jugador');
+                populateSelect(document.getElementById('selectJugador2'), opts, 'Seleccione Jugador');
+                
+                const primerJugadorConSesion = allPlayersData.find(p => p.sesiones && p.sesiones.length > 0);
+                
+                if (primerJugadorConSesion) {
+                    // Inicializar Análisis por Sesión
+                    const selJugadorRendimiento = document.getElementById('selectJugadorRendimiento');
+                    const selSesionRendimiento = document.getElementById('selectSesionRendimiento');
+                    selJugadorRendimiento.value = primerJugadorConSesion.id;
+                    await actualizarDropdownSesiones(selJugadorRendimiento, selSesionRendimiento, 'Seleccione Sesión');
+                    if (!selSesionRendimiento.disabled) {
+                        selSesionRendimiento.value = 'todas';
+                        cargarGraficoRendimientoSesion(selJugadorRendimiento.value, selSesionRendimiento.value);
+                    } else {
+                        displayCanvasMessage('graficoRendimientoSesion', 'El jugador seleccionado no tiene sesiones registrados.');
+                    }
+
+                    // Inicializar Evolución del Jugador
+                    const selJugadorEvo = document.getElementById('selectJugadorEvolucion');
+                    const selDesde = document.getElementById('selectSesionDesde');
+                    const selHasta = document.getElementById('selectSesionHasta');
+                    selJugadorEvo.value = primerJugadorConSesion.id;
+                    await actualizarDropdownsRango(selJugadorEvo, selDesde, selHasta);
+                    if (!selDesde.disabled && primerJugadorConSesion.sesiones.length > 0) { 
+                        cargarGraficoEvolucion(selJugadorEvo.value, selDesde.value, selHasta.value);
+                    } else {
+                        displayCanvasMessage('graficoEvolucion', 'El jugador seleccionado no tiene sesiones válidas para el rango.');
+                    }
+                } else {
+                    displayCanvasMessage('graficoRendimientoSesion', 'Ningún jugador tiene sesiones registradas.');
+                    displayCanvasMessage('graficoEvolucion', 'Ningún jugador tiene sesiones registradas.');
+                }
+
+                // Inicializar Comparación entre Sesiones
+                const jugadoresConSesiones = allPlayersData.filter(p => p.sesiones && p.sesiones.length > 0);
+                if (jugadoresConSesiones.length >= 2) {
+                    const j1Data = jugadoresConSesiones[0];
+                    const j2Data = jugadoresConSesiones[1];
+                    const selJug1 = document.getElementById('selectJugador1'); 
+                    const selSes1 = document.getElementById('selectSesion1');
+                    const selJug2 = document.getElementById('selectJugador2'); 
+                    const selSes2 = document.getElementById('selectSesion2');
+
+                    selJug1.value = j1Data.id;
+                    await actualizarDropdownSesiones(selJug1, selSes1, 'Seleccione Sesión');
+                    if (!selSes1.disabled) { selSes1.value = 'todas'; } 
+
+                    selJug2.value = j2Data.id;
+                    await actualizarDropdownSesiones(selJug2, selSes2, 'Seleccione Sesión');
+                    if (!selSes2.disabled) { selSes2.value = 'todas'; } 
+
+                    if (!selSes1.disabled && !selSes2.disabled) { 
+                        cargarGraficoComparacion(j1Data.id, selSes1.value, j2Data.id, selSes2.value);
+                    } else {
+                        displayCanvasMessage('graficoComparacion', 'Necesita dos jugadores con sesiones para comparar.');
+                    }
+                } else {
+                    displayCanvasMessage('graficoComparacion', 'Se necesitan al menos dos jugadores con sesiones para comparar.');
+                }
+
+            } catch(e) {
+                console.error("Fallo la inicialización:", e);
+                alert("Ocurrió un error grave al cargar el panel. Por favor, revise la consola y recargue la página.");
+                // Asegúrate de que todos los gráficos se muestren con mensaje de error si algo falla en la inicialización
+                displayCanvasMessage('graficoRendimientoSesion', 'Error al inicializar: ' + (e.message || 'Desconocido'));
+                displayCanvasMessage('graficoEvolucion', 'Error al inicializar: ' + (e.message || 'Desconocido'));
+                displayCanvasMessage('graficoComparacion', 'Error al inicializar: ' + (e.message || 'Desconocido'));
+            }
+        };
+        init();
+    });
+</script>
+
+{% endblock %}
