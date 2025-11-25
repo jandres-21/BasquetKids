@@ -1,0 +1,174 @@
+<aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+  <div class="app-brand demo d-flex align-items-center">
+    <a href="{{ url_for('inicio') }}" class="app-brand-link d-flex align-items-center">
+      <span class="app-brand-logo demo me-2">
+        <img
+          src="{{ url_for('static', filename='assets/img/logo.png') }}"
+          alt="Logo"
+          class="menu-logo-img"
+        />
+      </span>
+      <span class="app-brand-text fw-bold">BasketKids</span>
+    </a>
+  </div>
+
+  <div class="menu-inner-shadow"></div>
+
+  <ul class="menu-inner py-5">
+    <!-- Usuario -->
+    <li class="menu-item user-item {% if '/mi-perfil' in request.path or '/interfaz-clave' in request.path or '/lista-de-areas' in request.path %}active{% endif %}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle user-link">
+        <i class="menu-icon bi bi-person-fill fs-4 text-primary"></i>
+        <div class="menu-item-text user-name">{{ dataLogin.name | default('Usuario') }}</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if request.path == '/mi-perfil/' ~ dataLogin.id %} active {% endif %}">
+          <a href="{{ url_for('perfil', id=dataLogin.id) }}" class="menu-link">
+            <i class="menu-icon bi bi-person-gear"></i>
+            <div class="menu-item-text">Mi Perfil</div>
+          </a>
+        </li>
+        <li class="menu-item">
+          <a href="{{ url_for('cerraSesion') }}" class="menu-link">
+            <i class="menu-icon bi bi-box-arrow-right"></i>
+            <div class="menu-item-text">Salir</div>
+          </a>
+        </li>
+      </ul>
+    </li>
+
+    {% if dataLogin.rol == 1 %}
+    <li class="menu-item">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bi bi-grid-fill"></i>
+        <div class="menu-item-text">Administrar</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if request.path == '/reporte-accesos' %} active{% endif %}">
+          <a href="/reporte-accesos" class="menu-link">
+            <i class="menu-icon bi bi-file-earmark-lock-fill"></i>
+            <div class="menu-item-text">Accesos</div>
+          </a>
+        </li>
+        <li class="menu-item {% if request.path == '/lista-de-usuarios' %} active {% endif %}">
+          <a href="/lista-de-usuarios" class="menu-link">
+            <i class="menu-icon bi bi-people-fill"></i>
+            <div class="menu-item-text">Usuarios</div>
+          </a>
+        </li>
+        <li class="menu-item {% if request.path == '/lista-de-graficas' %} active {% endif %}">
+          <a href="/lista-de-graficas" class="menu-link">
+            <i class="menu-icon bi bi-bar-chart-fill"></i>
+            <div class="menu-item-text">Graficos</div>
+          </a>
+        </li>
+      </ul>
+    </li>
+    {% endif %}
+
+    {% if dataLogin.rol in [1, 2] %}
+    <li class="menu-item">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bi bi-basket2"></i>
+        <div class="menu-item-text">BasketKids</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if request.path == '/dashboard' %} active {% endif %}">
+          <a href="/dashboard" class="menu-link">
+            <i class="menu-icon bi bi-speedometer2"></i>
+            <div class="menu-item-text">Dashboard</div>
+          </a>
+        </li>
+        <li class="menu-item {% if request.path == '/lista-de-ninos' %} active {% endif %}">
+          <a href="/lista-de-ninos" class="menu-link">
+            <i class="menu-icon bi bi-emoji-smile-fill"></i>
+            <div class="menu-item-text">Niños</div>
+          </a>
+        </li>
+        <li class="menu-item {% if request.path == '/lista-de-graficas_2' %} active {% endif %}">
+          <a href="/lista-de-graficas_2" class="menu-link">
+            <i class="menu-icon bi bi-bar-chart-fill"></i>
+            <div class="menu-item-text">Graficos</div>
+          </a>
+        </li>
+        <li class="menu-item {% if request.path == '/lista-juegos' %} active {% endif %}">
+          <a href="/lista-juegos" class="menu-link">
+            <i class="menu-icon bi bi-controller"></i>
+            <div class="menu-item-text">Sesiones</div>
+          </a>
+        </li>
+      </ul>
+    </li>
+    {% endif %}
+
+    {% if dataLogin.rol == 3 %}
+    <li class="menu-item">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bi bi-eye"></i>
+        <div class="menu-item-text">Visualizar</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if request.path == '/lista-juegos' %} active {% endif %}">
+          <a href="/lista-juegos" class="menu-link">
+            <i class="menu-icon bi bi-controller"></i>
+            <div class="menu-item-text">Sesiones</div>
+          </a>
+        </li>
+      </ul>
+    </li>
+    {% endif %}
+  </ul>
+</aside>
+
+<!-- Zona sensible en el borde izquierdo -->
+<div id="menu-hover-zone" style="position: fixed; top: 0; left: 0; width: 10px; height: 100vh; z-index: 1050;"></div>
+
+<style>
+  #layout-menu {
+    transition: transform 0.3s ease;
+    z-index: 1049;
+  }
+
+  #layout-menu.hide-menu {
+    transform: translateX(-100%);
+  }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const menu = document.getElementById("layout-menu");
+    const hoverZone = document.getElementById("menu-hover-zone");
+
+    let mouseInsideMenu = false;
+
+    const isDashboard = window.location.pathname.includes("/dashboard");
+
+    if (isDashboard) {
+      // Mouse dentro/fuera del menú
+      menu.addEventListener("mouseenter", () => {
+        mouseInsideMenu = true;
+      });
+
+      menu.addEventListener("mouseleave", () => {
+        mouseInsideMenu = false;
+        setTimeout(() => {
+          if (!mouseInsideMenu) {
+            menu.classList.add("hide-menu");
+          }
+        }, 3000);
+      });
+
+      // Oculta después de 5 segundos si no está usando el menú
+      setTimeout(() => {
+        if (!mouseInsideMenu) {
+          menu.classList.add("hide-menu");
+        }
+      }, 5000);
+
+      // Mostrar si pasa el mouse por el borde izquierdo
+      hoverZone.addEventListener("mouseenter", () => {
+        menu.classList.remove("hide-menu");
+      });
+    }
+  });
+</script>

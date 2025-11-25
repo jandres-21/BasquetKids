@@ -1,0 +1,430 @@
+{% extends 'public/base_cpanel.html' %} 
+
+{% block title %}Paneles de Terapia de Juego{% endblock %} 
+
+{% block customCSS %}
+<style>
+/* --- ESTILOS PARA INDICADOR DE CARGA (SPINNER) --- */
+.chart-loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; display: none; }
+.spinner-border { width: 3rem; height: 3rem; border-width: 0.3em; }
+.content-loading .chart-area, .content-loading .table-responsive { opacity: 0.3; filter: blur(2px); pointer-events: none; }
+.content-loading .chart-loader { display: block; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="row mb-5"><div class="col-12 text-center"><h1 class="display-4 fw-bold mb-3" style="color: #28282B;">Panel de Terapia de Juego</h1><p class="lead text-muted">Análisis estadísticos del rendimiento y patrones de juego.</p></div></div>
+    
+    <!-- Fila para Gráficos Demográficos -->
+    <div class="row mb-4 justify-content-center">
+        <div class="col-md-6 mb-4"><div class="card shadow-sm h-100"><div class="card-header bg-white border-bottom text-center"><h5 class="mb-0 fw-bold">Distribución por Género</h5></div><div class="card-body position-relative" id="containerGraficoGenero" style="min-height: 300px;"><div class="chart-loader"><div class="spinner-border text-primary" role="status"></div></div><div class="chart-area" style="height: 100%;"><canvas id="graficoGenero"></canvas></div></div></div></div>
+        <div class="col-md-6 mb-4"><div class="card shadow-sm h-100"><div class="card-header bg-white border-bottom text-center"><h5 class="mb-0 fw-bold">Distribución por Edades</h5></div><div class="card-body position-relative" id="containerGraficoEdades" style="min-height: 300px;"><div class="chart-loader"><div class="spinner-border text-secondary" role="status"></div></div><div class="chart-area" style="height: 100%;"><canvas id="graficoEdades"></canvas></div></div></div></div>
+    </div>
+
+    <!-- Fila para Tablas de Top 5 -->
+    <div class="row mb-4 justify-content-center">
+        <div class="col-12 mb-4"><div class="card shadow-sm h-100"><div class="card-header bg-white border-bottom text-center"><h5 class="mb-0 fw-bold">Top 5 Sesiones Individuales con Más Aros</h5><p class="text-muted small mb-0">Detalle de las sesiones con mayor cantidad de aros.</p></div><div class="card-body position-relative" id="containerTablaMejoresSesiones"><div class="chart-loader"><div class="spinner-border text-primary" role="status"></div></div><div class="table-responsive"><table class="table table-striped table-hover mt-3"><thead class="colorTheadTrTh"><tr><th># Sesión</th><th>Jugador</th><th>Edad</th><th>Fecha y Hora</th><th>Aros</th><th>Z. Izq</th><th>Z. Der</th><th>Z. Arr</th></tr></thead><tbody id="mejoresSesionesIndividualesTableBody"></tbody></table><p id="noDataMejoresSesionesIndividuales" class="text-center text-muted d-none"></p></div></div></div></div>
+        <div class="col-12 mb-4"><div class="card shadow-sm h-100"><div class="card-header bg-white border-bottom text-center"><h5 class="mb-0 fw-bold">Top 5 Jugadores por Total de Aros</h5><p class="text-muted small mb-0">Total de aros y golpes acumulados de los mejores jugadores.</p></div><div class="card-body position-relative" id="containerTablaMejoresJugadores"><div class="chart-loader"><div class="spinner-border text-primary" role="status"></div></div><div class="table-responsive"><table class="table table-striped table-hover mt-3"><thead class="colorTheadTrTh"><tr><th>#</th><th>Jugador</th><th>Edad</th><th>Total Aros</th><th>Total Z. Izq</th><th>Total Z. Der</th><th>Total Z. Arr</th></tr></thead><tbody id="mejoresJugadoresTotalesTableBody"></tbody></table><p id="noDataMejoresJugadoresTotales" class="text-center text-muted d-none"></p></div></div></div></div>
+    </div>
+
+    <!-- Fila para Gráficos de Jugador Individual -->
+    <div class="row mb-4 justify-content-center">
+        <div class="col-12 mb-4"><div class="card shadow-sm h-100"><div class="card-header bg-white border-bottom text-center"><h5 class="mb-0 fw-bold">Rendimiento por Sesión</h5><p class="text-muted small mb-0">Distribución de aros y golpes para una sesión.</p></div><div class="card-body position-relative" id="containerRendimientoSesion"><div class="chart-loader"><div class="spinner-border text-info" role="status"></div></div><form id="formRendimientoSesion" class="p-3 mb-3 rounded-3 bg-light"><div class="row g-2"><div class="col-md-7"><label for="selectJugadorRendimiento" class="form-label fw-bold">Jugador</label><select id="selectJugadorRendimiento" class="form-select" required></select></div><div class="col-md-5"><label for="selectSesionRendimiento" class="form-label fw-bold">Sesión</label><select id="selectSesionRendimiento" class="form-select" required disabled></select></div></div><div class="d-grid mt-3"><button type="submit" class="btn btn-outline-info">Ver Rendimiento</button></div><p id="noDataRendimientoSesion" class="text-center text-danger d-none mt-2"></p></form><div class="chart-area" style="height: 280px;"><canvas id="graficoRendimientoSesion"></canvas></div></div></div></div>
+        <div class="col-12 mb-4"><div class="card shadow-sm h-100"><div class="card-header bg-white border-bottom text-center"><h5 class="mb-0 fw-bold">Gráfico de Evolución del Jugador</h5><p class="text-muted small mb-0">Evolución en un rango de sesiones.</p></div><div class="card-body position-relative" id="containerEvolucion"><div class="chart-loader"><div class="spinner-border text-primary" role="status"></div></div><form id="formEvolucionJugador" class="p-3 mb-3 rounded-3 bg-light"><div class="row g-2"><div class="col-md-5"><label for="selectJugadorEvolucion" class="form-label fw-bold">Jugador</label><select id="selectJugadorEvolucion" class="form-select" required></select></div><div class="col-md-3"><label for="selectSesionDesde" class="form-label fw-bold">Desde Sesión</label><select id="selectSesionDesde" class="form-select" required disabled></select></div><div class="col-md-3"><label for="selectSesionHasta" class="form-label fw-bold">Hasta Sesión</label><select id="selectSesionHasta" class="form-select" required disabled></select></div><div class="col-md-1 d-flex align-items-end"><button type="submit" class="btn btn-primary w-100">Ver</button></div></div><p id="noDataEvolucion" class="text-center text-danger d-none mt-2"></p></form><div class="chart-area" style="height: 350px;"><canvas id="graficoEvolucion"></canvas></div></div></div></div>
+    </div>
+    
+    <!-- Fila para Comparación -->
+    <div class="row mb-4 justify-content-center">
+        <div class="col-12 mb-4"><div class="card shadow-sm h-100"><div class="card-header bg-white border-bottom text-center"><h5 class="mb-0 fw-bold">Comparación Detallada entre Jugadores</h5><p class="text-muted small mb-0">Compara el rendimiento entre sesiones.</p></div><div class="card-body position-relative" id="containerComparacion"><div class="chart-loader"><div class="spinner-border text-success" role="status"></div></div><form id="formComparacionSesionesDetallada" class="p-3 mb-3 rounded-3 bg-light"><div class="row g-2 align-items-end"><div class="col-md-4"><label for="selectJugador1Comparacion" class="form-label fw-bold">Jugador 1</label><select id="selectJugador1Comparacion" class="form-select" required></select></div><div class="col-md-3"><label for="selectSesion1Comparacion" class="form-label fw-bold">Sesión 1</label><select id="selectSesion1Comparacion" class="form-select" required disabled></select></div><div class="col-md-4"><label for="selectJugador2Comparacion" class="form-label fw-bold">Jugador 2</label><select id="selectJugador2Comparacion" class="form-select" required ></select></div><div class="col-md-3"><label for="selectSesion2Comparacion" class="form-label fw-bold">Sesión 2</label><select id="selectSesion2Comparacion" class="form-select" required disabled></select></div><div class="col-md-2 d-grid"><button type="submit" class="btn btn-success">Comparar</button></div></div><p id="noDataComparacionSesiones" class="text-center text-danger d-none mt-2"></p></form><div class="chart-area" style="height: 350px;"><canvas id="graficoComparacionMariposa"></canvas></div></div></div></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    Chart.register(ChartDataLabels);
+    let chartInstances = {};
+    let allPlayersData = [];
+
+    // --- UTILITIES ---
+    const setLoadingState = (containerId, isLoading) => {
+        const el = document.getElementById(containerId);
+        if (el) el.classList.toggle('content-loading', isLoading);
+    };
+
+    const displayCanvasMessage = (canvasId, message, color = '#6c757d') => {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        if (chartInstances[canvasId]) {
+            chartInstances[canvasId].destroy();
+            delete chartInstances[canvasId];
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = color;
+        ctx.fillText(message || 'No hay datos disponibles.', canvas.width / 2, canvas.height / 2);
+    };
+
+    const populateSelect = (selectEl, placeholder, dataList = [], loading = false) => {
+        selectEl.innerHTML = '';
+        const option = new Option(loading ? "Cargando..." : placeholder, "", true, true);
+        option.disabled = true;
+        selectEl.add(option);
+        if (!loading && dataList && dataList.length > 0) {
+            dataList.forEach(item => selectEl.add(new Option(item.nombre_completo, item.id)));
+        }
+    };
+    
+    // --- LOADERS ---
+    const cargarGraficoGenero = () => {
+        setLoadingState('containerGraficoGenero', true);
+        fetch("{{ url_for('grafico_genero_datos') }}")
+            .then(res => res.ok ? res.json() : Promise.reject(res))
+            .then(data => {
+                const ctx = document.getElementById('graficoGenero').getContext('2d');
+                if (chartInstances.graficoGenero) chartInstances.graficoGenero.destroy();
+                if (data.labels && data.values && data.values.length > 0 && data.values.some(v => v > 0)) {
+                    chartInstances.graficoGenero = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{ data: data.values, backgroundColor: ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)'], borderColor: '#FFFFFF', borderWidth: 2 }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v) => v > 0 ? v : '', color: '#fff', font: { weight: 'bold', size: 14 } } } }
+                    });
+                } else {
+                    displayCanvasMessage('graficoGenero', 'No hay datos de género.');
+                }
+            })
+            .catch(err => displayCanvasMessage('graficoGenero', 'Error al cargar datos.'))
+            .finally(() => setLoadingState('containerGraficoGenero', false));
+    };
+
+    const cargarGraficoEdades = () => {
+        setLoadingState('containerGraficoEdades', true);
+        fetch("{{ url_for('grafico_edades_agrupadas_datos') }}")
+            .then(res => res.ok ? res.json() : Promise.reject(res))
+            .then(data => {
+                const ctx = document.getElementById('graficoEdades').getContext('2d');
+                if (chartInstances.graficoEdades) chartInstances.graficoEdades.destroy();
+                if (data.labels && data.values && data.values.length > 0 && data.values.some(v => v > 0)) {
+                    chartInstances.graficoEdades = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{ data: data.values, backgroundColor: ['rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)', 'rgba(255, 206, 86, 0.7)', 'rgba(201, 203, 207, 0.7)'], borderColor: '#FFFFFF', borderWidth: 2 }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v) => v > 0 ? v : '', color: '#fff', font: { weight: 'bold', size: 14 } } } }
+                    });
+                } else {
+                    displayCanvasMessage('graficoEdades', 'No hay datos de edades.');
+                }
+            })
+            .catch(err => displayCanvasMessage('graficoEdades', 'Error al cargar datos.'))
+            .finally(() => setLoadingState('containerGraficoEdades', false));
+    };
+
+    const cargarTablaMejoresSesionesIndividuales = () => {
+        setLoadingState('containerTablaMejoresSesiones', true);
+        fetch("{{ url_for('tabla_mejores_sesiones_datos') }}?limite=5")
+            .then(res => res.ok ? res.json() : Promise.reject(res))
+            .then(data => {
+                const tableBody = document.getElementById('mejoresSesionesIndividualesTableBody');
+                const noData = document.getElementById('noDataMejoresSesionesIndividuales');
+                tableBody.innerHTML = '';
+                if (data.mejores_sesiones && data.mejores_sesiones.length > 0) {
+                    data.mejores_sesiones.forEach(s => {
+                        const row = tableBody.insertRow();
+                        row.innerHTML = `<td>${s.nro_sesion}</td><td>${s.nombre} ${s.apellido}</td><td>${s.edad}</td><td>${s.fecha_sesion} ${s.hora_sesion}</td><td class="fw-bold text-primary">${s.cantidad_aros}</td><td>${s.zona_izq}</td><td>${s.zona_der}</td><td>${s.zona_arr}</td>`;
+                    });
+                    noData.classList.add('d-none');
+                } else {
+                    noData.textContent = 'No hay datos de sesiones disponibles.';
+                    noData.classList.remove('d-none');
+                }
+            })
+            .catch(err => {
+                const noData = document.getElementById('noDataMejoresSesionesIndividuales');
+                noData.textContent = 'Error al cargar datos.';
+                noData.classList.remove('d-none');
+            })
+            .finally(() => setLoadingState('containerTablaMejoresSesiones', false));
+    };
+
+    const cargarTablaMejoresJugadoresTotales = () => {
+        setLoadingState('containerTablaMejoresJugadores', true);
+        fetch("{{ url_for('tabla_mejores_jugadores_totales_datos') }}?limite=5")
+            .then(res => res.ok ? res.json() : Promise.reject(res))
+            .then(data => {
+                const tableBody = document.getElementById('mejoresJugadoresTotalesTableBody');
+                const noData = document.getElementById('noDataMejoresJugadoresTotales');
+                tableBody.innerHTML = '';
+                if (data.mejores_jugadores_totales && data.mejores_jugadores_totales.length > 0) {
+                    data.mejores_jugadores_totales.forEach((j, index) => {
+                         const row = tableBody.insertRow();
+                         row.innerHTML = `<th scope="row">${index + 1}</th><td>${j.nombre} ${j.apellido}</td><td>${j.edad}</td><td class="fw-bold text-primary">${j.total_aros}</td><td>${j.total_zona_izq}</td><td>${j.total_zona_der}</td><td>${j.total_zona_arr}</td>`;
+                    });
+                    noData.classList.add('d-none');
+                } else {
+                    noData.textContent = 'No hay datos de totales de jugadores.';
+                    noData.classList.remove('d-none');
+                }
+            })
+            .catch(err => {
+                 const noData = document.getElementById('noDataMejoresJugadoresTotales');
+                 noData.textContent = 'Error al cargar datos.';
+                 noData.classList.remove('d-none');
+            })
+            .finally(() => setLoadingState('containerTablaMejoresJugadores', false));
+    };
+
+    const cargarSelectoresJugadores = async () => {
+        const selectIds = ['selectJugadorRendimiento', 'selectJugadorEvolucion', 'selectJugador1Comparacion', 'selectJugador2Comparacion'];
+        const selects = selectIds.map(id => document.getElementById(id));
+        selects.forEach(s => populateSelect(s, '', [], false, false, true));
+        try {
+            const response = await fetch("{{ url_for('obtener_jugadores_para_select') }}");
+            if (!response.ok) throw new Error('Network response was not ok');
+            const data = await response.json();
+            allPlayersData = data.jugadores;
+            const playerList = allPlayersData.map(p => ({ id: p.id, nombre_completo: p.nombre_completo }));
+            selects.forEach(s => populateSelect(s, 'Seleccione un jugador...', playerList));
+        } catch (error) {
+            console.error('Error al cargar la lista de jugadores:', error);
+            selects.forEach(s => populateSelect(s, 'Error al cargar', []));
+        }
+    };
+
+    const actualizarDropdownSesiones = (jugadorSelectEl, sesionSelectEl) => {
+        const jugadorId = jugadorSelectEl.value;
+        sesionSelectEl.innerHTML = '';
+        sesionSelectEl.disabled = true;
+        
+        let placeholderText = 'Seleccione jugador';
+        if (jugadorId) {
+            const jugadorData = allPlayersData.find(p => p.id == jugadorId);
+            if (jugadorData && jugadorData.sesiones_disponibles.length > 0) {
+                sesionSelectEl.add(new Option("Todas las Sesiones", "Todas"));
+                jugadorData.sesiones_disponibles.sort((a,b) => a - b).forEach(num => sesionSelectEl.add(new Option(`Sesión ${num}`, num)));
+                sesionSelectEl.disabled = false;
+                return;
+            } else {
+                placeholderText = 'No hay sesiones';
+            }
+        }
+        const option = new Option(placeholderText, "", true, true);
+        option.disabled = true;
+        sesionSelectEl.add(option);
+    };
+    
+    const actualizarDropdownsRangoEvolucion = (jugadorSelectEl, desdeSelectEl, hastaSelectEl) => {
+        const jugadorId = jugadorSelectEl.value;
+        [desdeSelectEl, hastaSelectEl].forEach(s => { s.innerHTML = ''; s.disabled = true;});
+        
+        let placeholderText = 'Seleccione jugador';
+        if (jugadorId) {
+            const jugadorData = allPlayersData.find(p => p.id == jugadorId);
+            if (jugadorData && jugadorData.sesiones_disponibles.length > 0) {
+                const sortedSessions = jugadorData.sesiones_disponibles.sort((a, b) => a - b);
+                sortedSessions.forEach(num => {
+                    desdeSelectEl.add(new Option(`Sesión ${num}`, num));
+                    hastaSelectEl.add(new Option(`Sesión ${num}`, num));
+                });
+                desdeSelectEl.value = sortedSessions[0];
+                hastaSelectEl.value = sortedSessions[sortedSessions.length - 1];
+                [desdeSelectEl, hastaSelectEl].forEach(s => s.disabled = false);
+                return;
+            } else {
+                placeholderText = 'No hay sesiones';
+            }
+        }
+        const option = new Option(placeholderText, "", true, true);
+        option.disabled = true;
+        desdeSelectEl.add(option.cloneNode(true));
+        hastaSelectEl.add(option);
+    };
+
+    const cargarGraficoRendimientoSesion = (jugadorId, nroSesion) => {
+        setLoadingState('containerRendimientoSesion', true);
+        const url = `{{ url_for('grafico_rendimiento_sesion_datos') }}?jugador_id=${jugadorId}&nro_sesion=${nroSesion}`;
+        const noDataEl = document.getElementById('noDataRendimientoSesion');
+        noDataEl.classList.add('d-none');
+
+        fetch(url)
+            .then(res => res.ok ? res.json() : Promise.reject(res))
+            .then(data => {
+                const canvasId = 'graficoRendimientoSesion';
+                if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+                const hasData = data.labels && data.values.some(v => v > 0);
+                if (hasData) {
+                    const ctx = document.getElementById(canvasId).getContext('2d');
+                    chartInstances[canvasId] = new Chart(ctx, {
+                        type: 'pie',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{
+                                label: 'Cantidad', data: data.values,
+                                backgroundColor: ['rgba(54, 162, 235, 0.8)','rgba(255, 99, 132, 0.8)','rgba(255, 206, 86, 0.8)','rgba(75, 192, 192, 0.8)'],
+                                borderColor: 'white', borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (value) => value > 0 ? value : '', color: '#fff', font: { weight: 'bold', size: 14 } } }
+                        }
+                    });
+                } else {
+                    displayCanvasMessage(canvasId, 'No hay datos para esta selección.');
+                }
+            }).catch(err => {
+                console.error("Error en Rendimiento:", err)
+                displayCanvasMessage('graficoRendimientoSesion', 'Error al cargar datos.')
+            })
+            .finally(() => setLoadingState('containerRendimientoSesion', false));
+    };
+
+    const cargarGraficoEvolucion = (jugadorId, sesionDesde, sesionHasta) => {
+        setLoadingState('containerEvolucion', true);
+        const url = `{{ url_for('grafico_evolucion_datos') }}?jugador_id=${jugadorId}&sesion_desde=${sesionDesde}&sesion_hasta=${sesionHasta}`;
+        const noDataEl = document.getElementById('noDataEvolucion');
+        noDataEl.classList.add('d-none');
+        
+        fetch(url)
+            .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
+            .then(data => {
+                const canvasId = 'graficoEvolucion';
+                if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+                if (data.error) {
+                    noDataEl.textContent = data.message; noDataEl.classList.remove('d-none');
+                    displayCanvasMessage(canvasId, ''); return;
+                }
+                const datasets = [
+                    { label: 'Aros', data: data.datasets.aros, borderColor: 'rgba(54, 162, 235, 1)', tension: 0.1, fill: false, borderWidth: 2.5 },
+                    { label: 'Zona Izquierda', data: data.datasets.zona_izq, borderColor: 'rgba(255, 99, 132, 1)', tension: 0.1, fill: false, borderWidth: 1.5 },
+                    { label: 'Zona Derecha', data: data.datasets.zona_der, borderColor: 'rgba(255, 206, 86, 1)', tension: 0.1, fill: false, borderWidth: 1.5 },
+                    { label: 'Zona Arriba', data: data.datasets.zona_arr, borderColor: 'rgba(75, 192, 192, 1)', tension: 0.1, fill: false, borderWidth: 1.5 }
+                ];
+                chartInstances[canvasId] = new Chart(document.getElementById(canvasId).getContext('2d'), { type: 'line', data: { labels: data.labels, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { display: false }}, scales: { x: { title: { display: true, text: 'Sesión' } }, y: { title: { display: true, text: 'Cantidad' }, beginAtZero: true }}}});
+            }).catch(err => {
+                noDataEl.textContent = err.message || 'Error al cargar datos de evolución.';
+                noDataEl.classList.remove('d-none');
+                displayCanvasMessage('graficoEvolucion', 'Error');
+            })
+            .finally(() => setLoadingState('containerEvolucion', false));
+    };
+
+    const cargarGraficoComparacionMariposa = (jugadorId1, nroSesion1, jugadorId2, nroSesion2) => {
+        setLoadingState('containerComparacion', true);
+        const url = `{{ url_for('grafico_comparacion_sesiones_detallada_datos') }}?jugador_id1=${jugadorId1}&nro_sesion1=${nroSesion1}&jugador_id2=${jugadorId2}&nro_sesion2=${nroSesion2}`;
+        const noDataEl = document.getElementById('noDataComparacionSesiones');
+        noDataEl.classList.add('d-none');
+        fetch(url).then(res => res.ok ? res.json() : Promise.reject(res))
+            .then(allData => {
+                 const player1Data = allData.find(p => p.id == jugadorId1);
+                 const player2Data = allData.find(p => p.id == jugadorId2);
+                 const canvasId = 'graficoComparacionMariposa';
+                 if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+                 const categories = ["Aros", "Zona Izquierda", "Zona Derecha", "Zona Arriba"];
+                 const values1 = player1Data.data ? [ player1Data.data.total_aros*-1, player1Data.data.total_zona_izq*-1, player1Data.data.total_zona_der*-1, player1Data.data.total_zona_arr*-1] : [0,0,0,0];
+                 const values2 = player2Data.data ? [ player2Data.data.total_aros, player2Data.data.total_zona_izq, player2Data.data.total_zona_der, player2Data.data.total_zona_arr ] : [0,0,0,0];
+                     chartInstances[canvasId] = new Chart(document.getElementById(canvasId).getContext('2d'), { 
+                        type: 'bar',
+                        data: {
+                            labels: categories,
+                            datasets: [
+                                { label: player1Data.name, data: values1, backgroundColor: 'rgba(153, 102, 255, 0.8)' },
+                                { label: player2Data.name, data: values2, backgroundColor: 'rgba(75, 192, 192, 0.8)' }
+                            ]
+                        },
+                        options: {
+                            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'top' },
+                                tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${Math.abs(c.raw)}` } },
+                                datalabels: { formatter: (v) => Math.abs(v) > 0 ? Math.abs(v) : '', color: '#fff', font: {weight: 'bold'} }
+                            },
+                            scales: { x: { ticks: { callback: (v) => Math.abs(v) }, title: { display: true, text: 'Cantidad' }}, y: { stacked: true } }
+                        }
+                    });
+            }).catch(err => {
+                noDataEl.textContent = 'Error al cargar datos.';
+                noDataEl.classList.remove('d-none');
+                displayCanvasMessage('graficoComparacionMariposa', 'Error');
+            })
+            .finally(() => setLoadingState('containerComparacion', false));
+    };
+
+    // --- SETUP EVENT LISTENERS ---
+    
+    document.getElementById('formRendimientoSesion').addEventListener('submit', e => {
+        e.preventDefault();
+        const jId = document.getElementById('selectJugadorRendimiento').value;
+        const sId = document.getElementById('selectSesionRendimiento').value;
+        if (jId && sId) cargarGraficoRendimientoSesion(jId, sId);
+    });
+    
+    document.getElementById('formEvolucionJugador').addEventListener('submit', e => {
+        e.preventDefault();
+        const jId = document.getElementById('selectJugadorEvolucion').value;
+        const desde = document.getElementById('selectSesionDesde').value;
+        const hasta = document.getElementById('selectSesionHasta').value;
+        const noDataEl = document.getElementById('noDataEvolucion');
+        noDataEl.classList.add('d-none');
+        if (jId && desde && hasta) {
+            if (parseInt(desde) > parseInt(hasta)) {
+                noDataEl.textContent = "'Desde Sesión' no puede ser mayor que 'Hasta Sesión'.";
+                noDataEl.classList.remove('d-none'); return;
+            }
+            cargarGraficoEvolucion(jId, desde, hasta);
+        } else {
+           noDataEl.textContent = 'Por favor, complete todos los filtros.';
+           noDataEl.classList.remove('d-none');
+        }
+    });
+
+    document.getElementById('formComparacionSesionesDetallada').addEventListener('submit', e => {
+        e.preventDefault();
+        const j1 = document.getElementById('selectJugador1Comparacion').value;
+        const s1 = document.getElementById('selectSesion1Comparacion').value;
+        const j2 = document.getElementById('selectJugador2Comparacion').value;
+        const s2 = document.getElementById('selectSesion2Comparacion').value;
+        const noDataEl = document.getElementById('noDataComparacionSesiones');
+        noDataEl.classList.add('d-none');
+        if (j1 && s1 && j2 && s2) {
+             if (j1 === j2 && s1 === s2) {
+                noDataEl.textContent = 'Seleccione jugadores o sesiones diferentes.';
+                noDataEl.classList.remove('d-none'); return;
+            }
+            cargarGraficoComparacionMariposa(j1, s1, j2, s2);
+        } else {
+            noDataEl.textContent = 'Seleccione ambos jugadores y sus sesiones.';
+            noDataEl.classList.remove('d-none');
+        }
+    });
+
+    document.getElementById('selectJugadorRendimiento').addEventListener('change', e => actualizarDropdownSesiones(e.target, document.getElementById('selectSesionRendimiento')));
+    document.getElementById('selectJugadorEvolucion').addEventListener('change', e => actualizarDropdownsRangoEvolucion(e.target, document.getElementById('selectSesionDesde'), document.getElementById('selectSesionHasta')));
+    document.getElementById('selectJugador1Comparacion').addEventListener('change', e => actualizarDropdownSesiones(e.target, document.getElementById('selectSesion1Comparacion')));
+    document.getElementById('selectJugador2Comparacion').addEventListener('change', e => actualizarDropdownSesiones(e.target, document.getElementById('selectSesion2Comparacion')));
+
+    // --- Carga Inicial ---
+    cargarSelectoresJugadores();
+    cargarTablaMejoresSesionesIndividuales();
+    cargarTablaMejoresJugadoresTotales();
+    
+    displayCanvasMessage('graficoGenero', 'Cargando datos...');
+    displayCanvasMessage('graficoEdades', 'Cargando datos...');
+    displayCanvasMessage('graficoRendimientoSesion', 'Seleccione un jugador y sesión.');
+    displayCanvasMessage('graficoEvolucion', 'Seleccione un jugador y rango de sesiones.');
+    displayCanvasMessage('graficoComparacionMariposa', 'Seleccione para comparar.');
+
+    cargarGraficoGenero();
+    cargarGraficoEdades();
+
+});
+</script>
+{% endblock %}

@@ -1,0 +1,545 @@
+{% extends 'public/base_cpanel.html' %}
+
+{% block title %}Lista de Sesiones - BasketKids{% endblock %}
+
+{% block body %}
+<div class="card glassmorphism-card p-4 my-4 mx-auto" style="max-width: 1200px;">
+    <h2 class="text-center mb-4">📋 Sesiones Registradas</h2>
+
+    <!-- Filtros -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-5">
+            <label class="form-label">Filtrar por nombre de jugador</label>
+            <input type="text" id="filtroNombre" class="form-control" placeholder="Ej: Juan Pérez" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Filtrar por fecha</label>
+             <input type="date" id="filtroFecha" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Filtrar por # de Sesión</label>
+            <input type="number" id="filtroSesion" class="form-control" placeholder="Ej: 1" min="1" />
+        </div>
+    </div>
+
+    <!-- Tabla de juegos -->
+    <div class="table-responsive">
+        <table class="table table-hover" id="tablaSesiones">
+            <thead class="colorTheadTrTh">
+                <tr>
+                    <th># Sesión</th>
+                    <th>Jugador</th>
+                    <th>Fecha de la Sesión</th>
+                    <th>Rendimiento</th>
+                    <th>Aro</th>
+                    <th>Superior</th>
+                    <th>Izquierda</th>
+                    <th>Derecha</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tablaCuerpo">
+                {% if juegos %}
+                    {% for j in juegos %}
+                    <tr data-sesion="{{ j.nro_sesion }}" data-fecha="{{ j.fecha_inicio.strftime('%Y-%m-%d') }}">
+                        <td>{{ j.nro_sesion }}</td>
+                        <td class="col-jugador">{{ j.nombre }} {{ j.apellido }}</td>
+                        <td class="col-fecha">{{ j.fecha_inicio.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="col-rendimiento">{{ j.rendimiento or 'N/A' }}</td>
+                        <td>{{ j.cantidad_aros }}</td>
+                        <td>{{ j.zona_arr }}</td>
+                        <td>{{ j.zona_izq }}</td>
+                        <td>{{ j.zona_der }}</td>
+                        <td>
+                            <!-- INICIO DE CAMBIO: MEJORADA DISPOSICIÓN DE BOTONES -->
+                            <div class="btn-group action-buttons-group" role="group" aria-label="Acciones de sesión">
+                                {% if dataLogin.rol != 3 %}
+                                <a onclick="verDiagnostico('{{ j.id }}');" class="btn btn-info btn-sm" title="Ver/Editar Diagnóstico">
+                                    <i class="bi bi-card-text"></i>
+                                </a>
+                                {% endif %}
+                                <a onclick="descargarResultados('{{ j.id }}');" class="btn btn-success btn-sm" title="Descargar PDF">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                {% if dataLogin.rol != 3 %}
+                                <a onclick="eliminarJuego('{{ j.id }}');" class="btn btn-danger btn-sm" title="Eliminar Sesión">
+                                    <i class="bi bi-trash3"></i>
+                                </a>
+                                {% else %}
+                                <button class="btn btn-danger btn-sm" disabled title="No tienes permiso para eliminar" style="cursor: not-allowed;" tabindex="-1" aria-disabled="true">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <!-- FIN DE CAMBIO -->
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+        <div id="no-results-row" style="display: none;">
+            <p class="text-center text-muted p-4"><i class="bi bi-search me-2"></i>No se encontraron sesiones con los filtros aplicados.</p>
+        </div>
+        {% if not juegos %}
+            <p class="text-center text-muted p-4">Aún no hay sesiones registradas en el sistema.</p>
+        {% endif %}
+    </div>
+
+    <!-- Paginación -->
+    <nav>
+        <ul class="pagination justify-content-center" id="paginacionTabla"></ul>
+    </nav>
+</div>
+
+<!-- INICIO DE CAMBIO: MODAL REDISEÑADA -->
+<div class="modal fade" id="diagnosticModal" tabindex="-1" aria-labelledby="diagnosticModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="diagnosticModalLabel">Resumen de la Sesión</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="results-content-wrapper" id="pdf-content-modal">
+                    <div class="app-brand justify-content-center mb-3">
+                        <img id="resultsPlayerAvatarModal" src="" alt="Avatar del Jugador" class="player-avatar-active" style="width:80px; height:80px; border-radius:50%;">
+                    </div>
+                    <h3 id="resultsPlayerNameTitleModal" class="mb-2 text-center results-main-title"></h3>
+                    <p class="mb-4 text-center results-therapist-phrase">Análisis del desempeño del jugador durante la sesión.</p><hr>
+                    <p class="mb-4 text-center results-game-time">Tiempo de Juego: <span id="resultsGameTimeModal">00:00</span></p>
+                    <div class="chart-container mb-4">
+                        <h5 class="mb-3 text-center chart-title">Distribución de Toques</h5>
+                        <div class="bar-chart-wrapper">
+                            <div class="bar-chart" id="gameBarChartModal" style="display: flex; justify-content: space-around; align-items: flex-end; height: 150px; width: 100%;">
+                                <!-- Gráfico se insertará aquí -->
+                            </div>
+                        </div>
+                    </div>
+                    <div id="diagnosticReport" class="diagnostic-container mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="diagnostic-title mb-0">Análisis Terapéutico</h5>
+                        </div>
+                        <div id="diagnostic-content-modal">
+                            <p id="diagnosticTextView"></p>
+                            <textarea id="diagnosticTextArea" class="form-control d-none" rows="8"></textarea>
+                        </div>
+                        <div id="diagnostic-notification" class="mt-2 text-center"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-outline-primary" id="editDiagnosticBtnModal">
+                    <i class="bi bi-pencil-square me-1"></i> Modificar Diagnóstico
+                </button>
+                <button type="button" class="btn btn-success d-none" id="saveDiagnosticBtnModal">
+                    <i class="bi bi-save me-1"></i> Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- FIN DE CAMBIO -->
+
+
+<!-- Contenedor oculto para generar los elementos del PDF dinámicamente -->
+<div id="pdf-generator-container" style="position: absolute; left: -9999px; top: -9999px; width: 600px; background-color: white; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <div id="chart-container-temporal" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: .375rem; padding: 1rem; text-align: center;">
+        <h5 style="margin-bottom: 1.5rem; color: #495057; font-size: 1.25rem; font-weight: 500;">Distribución de Toques</h5>
+        <div style="width: 100%;">
+            <div id="gameBarChartTemporal" style="display: flex; justify-content: space-around; align-items: flex-end; height: 150px; width: 100%;">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block customCSS %}
+<style>
+    /* Estilos para el gráfico temporal (PDF y Modal) */
+    .bar-group-temporal {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 20%;
+    }
+    .bar-value-temporal {
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #212529;
+    }
+    .bar-fill-temporal {
+        background-color: #0d6efd; /* Color primario de Bootstrap para las barras */
+        width: 50px;
+        border-radius: 4px 4px 0 0;
+        transition: height 0.3s ease-out;
+    }
+    .bar-label-temporal {
+        margin-top: 10px;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    /* Mejora para los botones de acción */
+    .action-buttons-group {
+        display: inline-flex;
+        gap: 5px; /* Espacio entre botones */
+    }
+</style>
+{% endblock %}
+
+
+{% block customJS %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+<script>
+    let diagnosticModalInstance;
+    let currentSessionIdForModal = null;
+
+    function toggleDiagnosticEditMode(isEditing) {
+        const textView = document.getElementById('diagnosticTextView');
+        const textArea = document.getElementById('diagnosticTextArea');
+        const editBtn = document.getElementById('editDiagnosticBtnModal');
+        const saveBtn = document.getElementById('saveDiagnosticBtnModal');
+
+        if (isEditing) {
+            textView.classList.add('d-none');
+            textArea.classList.remove('d-none');
+            editBtn.classList.add('d-none');
+            saveBtn.classList.remove('d-none');
+            textArea.value = textView.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+            textArea.focus();
+        } else {
+            textView.classList.remove('d-none');
+            textArea.classList.add('d-none');
+            editBtn.classList.remove('d-none');
+            saveBtn.classList.add('d-none');
+        }
+    }
+    
+    // INICIO DE CAMBIO: Función verDiagnostico rediseñada
+    async function verDiagnostico(sessionId) {
+        currentSessionIdForModal = sessionId;
+        diagnosticModalInstance.show();
+
+        // Elementos de la modal
+        const modalTitle = document.getElementById('resultsPlayerNameTitleModal');
+        const modalAvatar = document.getElementById('resultsPlayerAvatarModal');
+        const modalTime = document.getElementById('resultsGameTimeModal');
+        const modalChart = document.getElementById('gameBarChartModal');
+        const textView = document.getElementById('diagnosticTextView');
+        const notification = document.getElementById('diagnostic-notification');
+
+        // Resetear la modal a estado de carga
+        modalTitle.textContent = 'Cargando...';
+        modalAvatar.src = '';
+        modalTime.textContent = '--:--';
+        modalChart.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
+        textView.innerHTML = '';
+        notification.textContent = '';
+        toggleDiagnosticEditMode(false);
+
+        try {
+            const response = await fetch(`/get-session-details/${sessionId}`);
+            const result = await response.json();
+
+            if (!result.success) throw new Error(result.error || 'No se pudieron obtener los datos.');
+            
+            const data = result.data;
+            const sessionData = {
+                playerName: `${data.nombre} ${data.apellido}`,
+                playerGenero: data.genero,
+                sessionNumber: data.nro_sesion,
+                durationText: data.duracion || 'N/A',
+                diagnosticText: data.diagnostico,
+                gaugeCounts: {
+                    Aro: data.cantidad_aros, Arriba: data.zona_arr,
+                    Izquierda: data.zona_izq, Derecha: data.zona_der
+                }
+            };
+            
+            // Poblar la modal con los datos
+            modalTitle.textContent = `Resultados para ${sessionData.playerName} - Sesión #${sessionData.sessionNumber}`;
+            modalAvatar.src = `/static/assets/img/${sessionData.playerGenero}.png`;
+            modalTime.textContent = sessionData.durationText;
+            textView.innerHTML = sessionData.diagnosticText ? sessionData.diagnosticText.replace(/\n/g, '<br>') : 'No hay un diagnóstico registrado.';
+            
+            // Crear el gráfico dentro de la modal
+            crearGraficoTemporal(sessionData, 'gameBarChartModal');
+
+        } catch (error) {
+            modalChart.innerHTML = '';
+            textView.innerHTML = `<p class="text-danger text-center">Error al cargar datos: ${error.message}</p>`;
+        }
+    }
+    // FIN DE CAMBIO
+
+    async function guardarDiagnostico() {
+        const saveBtn = document.getElementById('saveDiagnosticBtnModal');
+        const notification = document.getElementById('diagnostic-notification');
+        const newText = document.getElementById('diagnosticTextArea').value;
+
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+        notification.textContent = '';
+
+        try {
+            const response = await fetch('/update_diagnostic', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: currentSessionIdForModal,
+                    diagnosticText: newText
+                })
+            });
+            const result = await response.json();
+
+            if (!result.success) throw new Error(result.error || 'Error del servidor.');
+
+            document.getElementById('diagnosticTextView').innerHTML = newText.replace(/\n/g, '<br>');
+            notification.className = 'mt-2 text-center text-success';
+            notification.textContent = 'Diagnóstico actualizado con éxito.';
+            
+            setTimeout(() => {
+                toggleDiagnosticEditMode(false);
+                notification.textContent = '';
+            }, 1500);
+
+        } catch (error) {
+            notification.className = 'mt-2 text-center text-danger';
+            notification.textContent = `Error: ${error.message}`;
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="bi bi-save me-1"></i> Guardar Cambios';
+        }
+    }
+    
+    // INICIO DE CAMBIO: Función de gráfico modificada para ser reutilizable
+    function crearGraficoTemporal(sessionData, containerId) {
+        const chartContainer = document.getElementById(containerId);
+        if (!chartContainer) return;
+
+        chartContainer.innerHTML = ''; 
+
+        const gaugeCounts = sessionData.gaugeCounts;
+        const maxValue = Math.max(...Object.values(gaugeCounts), 1);
+
+        ['Aro', 'Arriba', 'Izquierda', 'Derecha'].forEach(key => {
+            const value = gaugeCounts[key] || 0;
+            const barGroup = document.createElement('div');
+            barGroup.className = 'bar-group-temporal';
+
+            const barValue = document.createElement('span');
+            barValue.className = 'bar-value-temporal';
+            barValue.textContent = value;
+
+            const barFillContainer = document.createElement('div');
+            barFillContainer.style.height = '100px'; 
+            barFillContainer.style.display = 'flex';
+            barFillContainer.style.alignItems = 'flex-end';
+
+            const barFill = document.createElement('div');
+            barFill.className = 'bar-fill-temporal';
+            const barHeight = (value / maxValue) * 90;
+            barFill.style.height = `${barHeight}%`;
+
+            const barLabel = document.createElement('span');
+            barLabel.className = 'bar-label-temporal';
+            barLabel.textContent = key;
+            
+            barFillContainer.appendChild(barFill);
+            barGroup.appendChild(barValue);
+            barGroup.appendChild(barFillContainer);
+            barGroup.appendChild(barLabel);
+            chartContainer.appendChild(barGroup);
+        });
+    }
+    // FIN DE CAMBIO
+
+    async function descargarResultados(sessionId) {
+        Swal.fire({
+            title: 'Generando PDF...',
+            text: 'Por favor, espera un momento.',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        try {
+            const response = await fetch(`/get-session-details/${sessionId}`);
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'No se pudieron obtener los datos.');
+            
+            const data = result.data;
+            const pdfData = {
+                playerName: `${data.nombre} ${data.apellido}`,
+                playerAge: data.edad, playerGenero: data.genero,
+                sessionStartTime: new Date(data.fecha_inicio),
+                sessionNumber: data.nro_sesion,
+                durationText: data.duracion || 'N/A',
+                diagnosticText: data.diagnostico,
+                rendimiento: data.rendimiento,
+                gaugeCounts: {
+                    Aro: data.cantidad_aros, Arriba: data.zona_arr,
+                    Izquierda: data.zona_izq, Derecha: data.zona_der
+                }
+            };
+            
+            crearGraficoTemporal(pdfData, 'gameBarChartTemporal');
+            Swal.close();
+            await generatePdf(pdfData);
+
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
+        }
+    }
+
+    async function generatePdf(sessionData) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const now = new Date();
+        const generatedDate = now.toLocaleString('es-EC',{timeZone:'America/Guayaquil',dateStyle:'short',timeStyle:'short'});
+
+        const sessionDateObj = new Date(sessionData.sessionStartTime);
+        const formattedSessionDate = sessionDateObj.toLocaleDateString('es-EC',{timeZone:'America/Guayaquil',day:'2-digit',month:'long',year:'numeric'});
+
+        doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.text("Reporte de Sesión - BasketKids", doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        doc.setFontSize(10); doc.text(`Generado: ${generatedDate}`, doc.internal.pageSize.getWidth() - 15, 10, { align: 'right' });
+        doc.text(`Fecha de Sesión: ${formattedSessionDate}`, 15, 10);
+        doc.setLineWidth(0.5); doc.line(15, 25, doc.internal.pageSize.getWidth() - 15, 25);
+        
+        doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("Paciente:", 20, 35);
+        doc.setFont("helvetica", "normal"); doc.text(sessionData.playerName, 42, 35);
+        doc.setFont("helvetica", "bold"); doc.text("Edad:", 20, 42);
+        doc.setFont("helvetica", "normal"); doc.text(`${sessionData.playerAge} años`, 32, 42);
+        doc.setFont("helvetica", "bold"); doc.text("Tiempo de Juego:", 20, 49);
+        doc.setFont("helvetica", "normal"); doc.text(sessionData.durationText, 55, 49);
+        
+        doc.setFont("helvetica", "bold"); doc.text(`Número de Sesión: ${sessionData.sessionNumber || 'N/A'}`, doc.internal.pageSize.getWidth() / 2 + 10, 35);
+
+        const avatarUrl = `/static/assets/img/${sessionData.playerGenero}.png`;
+        try {
+            const response = await fetch(avatarUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            await new Promise((resolve, reject) => {
+                reader.onload = resolve;
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            doc.addImage(reader.result, 'PNG', 160, 30, 25, 25);
+        } catch(e) {
+            console.error('Error al cargar la imagen del avatar para el PDF:', e);
+        }
+
+        let fY = 70;
+        doc.setFont("helvetica","bold"); doc.setFontSize(16); doc.text("Resumen de Toques", doc.internal.pageSize.getWidth() / 2, fY, { align: 'center' });
+        
+        try {
+            const chartElement = document.getElementById('chart-container-temporal');
+            if (chartElement) {
+                const canvas = await html2canvas(chartElement, { backgroundColor: '#FFFFFF', scale: 2 });
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                const imgWidth = 140; 
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                const imgX = (doc.internal.pageSize.getWidth() - imgWidth) / 2;
+                doc.addImage(imgData, 'JPEG', imgX, fY + 5, imgWidth, imgHeight);
+                fY = fY + imgHeight + 15;
+            }
+        } catch(e) {
+            console.error("Error al capturar el gráfico dinámico:", e);
+            fY = fY + 20;
+        }
+
+        doc.setFontSize(16); doc.text("Análisis Terapéutico",15,fY);
+        doc.setLineWidth(0.2); doc.line(15, fY+2, doc.internal.pageSize.getWidth()-15, fY+2);
+        doc.setFont("helvetica","normal"); doc.setFontSize(12);
+        
+        const diagnosticTextForPdf = (sessionData.diagnosticText || "").replace(/<br\s*\/?>/gi, '\n');
+        const sDg = doc.splitTextToSize(diagnosticTextForPdf, 180);
+        doc.text(sDg, 15, fY + 8);
+
+        doc.save(`Reporte_Sesion${sessionData.sessionNumber || 'N_A'}_${sessionData.playerName.replace(/\s/g,'_')}.pdf`);
+
+        const chartContainer = document.getElementById('gameBarChartTemporal');
+        if (chartContainer) chartContainer.innerHTML = '';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const modalElement = document.getElementById('diagnosticModal');
+        if (modalElement) {
+            diagnosticModalInstance = new bootstrap.Modal(modalElement);
+            document.getElementById('editDiagnosticBtnModal').addEventListener('click', () => toggleDiagnosticEditMode(true));
+            document.getElementById('saveDiagnosticBtnModal').addEventListener('click', guardarDiagnostico);
+        }
+
+        const filtroNombre = document.getElementById('filtroNombre');
+        const filtroSesion = document.getElementById('filtroSesion');
+        const filtroFecha = document.getElementById('filtroFecha');
+        const filasOriginales = Array.from(document.querySelectorAll('#tablaCuerpo tr[data-sesion]'));
+        const noResultsRow = document.getElementById('no-results-row');
+        const paginacion = document.getElementById('paginacionTabla');
+        const filasPorPagina = 10;
+        let paginaActual = 1;
+
+        function aplicarFiltros() { mostrarPagina(1); }
+
+        function obtenerFilasFiltradas() {
+            const textoNombre = filtroNombre.value.toLowerCase();
+            const valorSesion = filtroSesion.value;
+            const valorFecha = filtroFecha.value;
+
+            const filasFiltradas = filasOriginales.filter(fila => {
+                const jugador = fila.querySelector('.col-jugador').textContent.toLowerCase();
+                const sesion = fila.getAttribute('data-sesion');
+                const fecha = fila.getAttribute('data-fecha');
+                return jugador.includes(textoNombre) && (valorSesion === "" || sesion === valorSesion) && (valorFecha === "" || fecha === valorFecha);
+            });
+            
+            if (noResultsRow) {
+                noResultsRow.style.display = (filasFiltradas.length === 0 && filasOriginales.length > 0) ? '' : 'none';
+            }
+            return filasFiltradas;
+        }
+
+        function mostrarPagina(pagina) {
+            const filasFiltradas = obtenerFilasFiltradas();
+            const totalPaginas = Math.ceil(filasFiltradas.length / filasPorPagina) || 1;
+            paginaActual = Math.min(Math.max(pagina, 1), totalPaginas);
+            const inicio = (paginaActual - 1) * filasPorPagina;
+            const fin = inicio + filasPorPagina;
+
+            filasOriginales.forEach(fila => fila.style.display = 'none');
+            filasFiltradas.slice(inicio, fin).forEach(fila => fila.style.display = '');
+            renderizarPaginacion(totalPaginas);
+        }
+
+        function renderizarPaginacion(totalPaginas) {
+            paginacion.innerHTML = '';
+            if (totalPaginas <= 1) return;
+
+            const crearItem = (label, pagina, deshabilitado = false, activo = false) => {
+                const li = document.createElement('li');
+                li.className = `page-item ${deshabilitado ? 'disabled' : ''} ${activo ? 'active' : ''}`;
+                const a = document.createElement('a');
+                a.className = 'page-link'; a.href = '#'; a.textContent = label;
+                a.onclick = (e) => { e.preventDefault(); if (!deshabilitado) mostrarPagina(pagina); };
+                li.appendChild(a); return li;
+            };
+
+            paginacion.appendChild(crearItem('«', paginaActual - 1, paginaActual === 1));
+            for (let i = 1; i <= totalPaginas; i++) {
+                paginacion.appendChild(crearItem(i, i, false, i === paginaActual));
+            }
+            paginacion.appendChild(crearItem('»', paginaActual + 1, paginaActual === totalPaginas));
+        }
+
+        filtroNombre.addEventListener('input', aplicarFiltros);
+        filtroSesion.addEventListener('input', aplicarFiltros);
+        filtroFecha.addEventListener('change', aplicarFiltros);
+        
+        mostrarPagina(1);
+    });
+</script>
+{% endblock %}

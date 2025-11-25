@@ -1,0 +1,41 @@
+{# Este archivo se incluye en `base.html` para mostrar los mensajes flash de Flask #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {#
+      Contenedor principal para los mensajes flash.
+      Ajusta las propiedades 'top', 'right', y 'width' según tu diseño deseado.
+      'z-index: 1050' asegura que la notificación esté por encima de la mayoría de los elementos.
+    #}
+    <div id="flash-messages-container" style="position: fixed; top: 20px; right: 20px; z-index: 1050; width: 320px;">
+      {% for category, message in messages %}
+        {#
+          Utilizamos la clase 'toast' de Bootstrap junto con 'custom-toast' para nuestros estilos.
+          'fade show' proporciona una animación de aparición.
+          'role="alert" aria-live="polite" aria-atomic="true"' son importantes para accesibilidad.
+        #}
+        <div class="toast custom-toast toast-{{ category }} fade show" role="alert" aria-live="polite" aria-atomic="true" style="margin-bottom: 10px;">
+          <div class="toast-header">
+            {# Iconos definidos con clases personalizadas para aplicar colores de tu paleta desde CSS #}
+            {% if category == 'success' %}
+              <i class="bi bi-check-circle-fill me-2 toast-icon-success"></i>
+              <strong class="me-auto toast-title-success">Éxito</strong> {# Título más conciso #}
+            {% elif category == 'error' %}
+              <i class="bi bi-x-circle-fill me-2 toast-icon-error"></i>
+              <strong class="me-auto toast-title-error">Error</strong> {# Título más conciso #}
+            {% else %}
+              {# Puedes añadir otras categorías si las usas, por ejemplo, 'info' o 'warning' #}
+              <i class="bi bi-info-circle-fill me-2 toast-icon-info"></i>
+              <strong class="me-auto toast-title-info">Información</strong>
+            {% endif %}
+            {# Eliminamos el botón de cierre "X" feo aquí #}
+          </div>
+          <div class="toast-body">
+            {{ message }}
+          </div>
+          {# Barra de progreso que se llenará con color y animación desde CSS #}
+          <div class="toast-progress toast-progress-{{ category }}"></div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}

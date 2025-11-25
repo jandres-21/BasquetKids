@@ -1,0 +1,27 @@
+<!-- templates/base.html (NUEVO - plantila base MÍNIMA) -->
+<!DOCTYPE html>
+<html
+  lang="es"
+  class="light-style" {# Elimina 'layout-menu-fixed' si no lo necesitas más #}
+  dir="ltr"
+  data-theme="theme-default"
+  data-assets-path="../assets/"
+  data-template="vertical-menu-template-free">
+  <head>
+    {% include 'public/includes/head.html' %} {# Archivo con meta, title, CSS general #}
+    {# Permite que las plantillas que extiendan esta, añadan CSS específico #}
+    {% block customCSS %}{% endblock customCSS %}
+  </head>
+  <body class="{% if 'conectado' not in session %}auth-page-body{% endif %}"> {# Clase para fondo condicional del login #}
+    {% include 'public/includes/pre_loader.html' %} {# Tu loader #}
+    {% include 'public/includes/messages.html' %} {# Tus notificaciones Toast flotantes #}
+
+    {# Este es el único bloque de contenido que ofrece esta base mínima #}
+    {% block body %}{% endblock body %}
+
+    {# Incluye los scripts JS comunes (Bootstrap JS y tu home.js) #}
+    {% include 'public/includes/js.html' %}
+    {# Permite que las plantillas que extiendan esta, añadan JS específico #}
+    {% block customJS %}{% endblock customJS %}
+  </body>
+</html>
