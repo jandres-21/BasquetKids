@@ -358,7 +358,6 @@ def dashboard():
                            ultimos_jugadores=ultimos_jugadores,
                            settings=settings)
 
-
 @app.route('/update_setting', methods=['POST'])
 def update_setting():
     """
@@ -378,14 +377,22 @@ def update_setting():
         with connectionBD() as conn:
             with conn.cursor() as cursor:
                 # Usa INSERT ... ON DUPLICATE KEY UPDATE para insertar o actualizar
-                sql = "INSERT INTO configuracion (nombre_ajuste, valor_ajuste) VALUES (%s, %s) ON DUPLICATE KEY UPDATE valor_ajuste = VALUES(valor_ajuste)"
-                # Convierte booleans de JS a strings para la BD
-                setting_value_db = 'true' if isinstance(setting_value, bool) else str(setting_value)
+                sql = "INSERT INTO configuracion (nombre_ajuste, valor_ajuste, id_juguete) VALUES (%s, %s, 1) ON DUPLICATE KEY UPDATE valor_ajuste = VALUES(valor_ajuste)"
+                
+                # --- CORRECCIÓN IMPORTANTE ---
+                if isinstance(setting_value, bool):
+                    # Convierte True a 'true' y False a 'false' (minúsculas para Node-RED)
+                    setting_value_db = 'true' if setting_value else 'false'
+                else:
+                    # Cualquier otro dato (números, strings) se guarda tal cual
+                    setting_value_db = str(setting_value)
+                # -----------------------------
+
                 cursor.execute(sql, (setting_name, setting_value_db))
                 conn.commit()
-        return jsonify({'success': True, 'message': f"Ajuste '{setting_name}' guardado."})
+        return jsonify({'success': True, 'message': f"Ajuste '{}' guardado."})
     except Exception as e:
-        print(f"Error al actualizar el ajuste '{setting_name}': {e}")
+        print(f"Error al actualizar el ajuste '{}': {}")
         return jsonify({'success': False, 'error': 'Error interno del servidor al guardar.'}), 500
 
 
